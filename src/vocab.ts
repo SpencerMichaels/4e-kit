@@ -84,8 +84,9 @@ export type ConditionId = (typeof CONDITION_IDS)[number]
  * movement or the power's attack does not provoke opportunity attacks
  * ("without provoking opportunity attacks": duration 'instant' when it rides
  * on one move; "This attack does not provoke": 'this-power').
+ * 'no-concealment': it cannot benefit from concealment or invisibility.
  */
-export const STATUS_IDS = ['insubstantial', 'phasing', 'no-provoke'] as const
+export const STATUS_IDS = ['insubstantial', 'phasing', 'no-provoke', 'no-concealment'] as const
 export type StatusId = (typeof STATUS_IDS)[number]
 
 export type Duration =

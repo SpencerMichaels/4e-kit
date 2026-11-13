@@ -57,8 +57,15 @@ import type {
  * 'skill-checks', 'ability:str', 'ability-checks'); reroll `what` may be a list.
  * "falls asleep" is condition 'unconscious' (4e sleep is unconscious; the
  * printed wake rule goes in an 'until' duration), not a new status.
+ * 11: clause kind speed (a movement mode gained or set: "gains a fly speed of
+ * 12", "fly 8 (hover)"; a change to one non-walk mode in `change`; a plain
+ * "+2 bonus to speed" stays modifier 'speed'); status 'no-concealment'
+ * ("cannot benefit from invisibility or concealment"); ModifierStat
+ * 'initiative'; saveModifier on condition and ongoing-damage clauses ("(save
+ * ends, with a -2 penalty to the saving throw)": -2); Aura.range is optional,
+ * with Aura.rangeText for a printed size that is not a number ("aura sight").
  */
-export const SCHEMA_VERSION = 10
+export const SCHEMA_VERSION = 11
 
 /**
  * A resistance or vulnerability: numeric ("resist 10 fire"), a damage type with
@@ -117,7 +124,7 @@ export type Who =
 /** Checks: 'skill:stealth', 'skill-checks' (all), 'ability:str' ("Strength checks"), 'ability-checks'. */
 export type ModifierStat =
   | 'attack' | 'ac' | 'fortitude' | 'reflex' | 'will' | 'defenses'
-  | 'speed' | 'saving-throws' | 'damage'
+  | 'speed' | 'saving-throws' | 'damage' | 'initiative'
   | `skill:${Skill}` | 'skill-checks' | `ability:${Ability}` | 'ability-checks'
 
 interface ClauseBase {
@@ -149,9 +156,10 @@ export type Clause = ClauseBase & (
   /** PC/item damage formula ("2[W] + Strength modifier"); 4ecb evaluates it. */
   | { kind: 'damage-formula'; text: string; types: DamageType[] }
   | { kind: 'half-damage' }
-  | { kind: 'ongoing-damage'; amount: number; types: DamageType[]; typeChoice?: DamageType[]; who: Who | Who[]; duration: Duration; saveGroup?: string }
-  /** escapeDc: a grab's "(escape DC 20)". "falls asleep" is 'unconscious' with the wake rule as duration. */
-  | { kind: 'condition'; condition: ConditionId; who: Who | Who[]; duration: Duration; saveGroup?: string; escapeDc?: number }
+  /** saveModifier: a printed modifier to the saving throw against it ("(save ends, with a -2 penalty to the saving throw)": -2). */
+  | { kind: 'ongoing-damage'; amount: number; types: DamageType[]; typeChoice?: DamageType[]; who: Who | Who[]; duration: Duration; saveGroup?: string; saveModifier?: number }
+  /** escapeDc: a grab's "(escape DC 20)". "falls asleep" is 'unconscious' with the wake rule as duration. saveModifier as for ongoing-damage. */
+  | { kind: 'condition'; condition: ConditionId; who: Who | Who[]; duration: Duration; saveGroup?: string; escapeDc?: number; saveModifier?: number }
   /** `to` gains it against `who`: 'source' only, 'source-allies' (the source and its allies), 'all', or only a third party ('rider', 'mount', 'ally'). */
   | { kind: 'grants-ca'; to: 'all' | 'source' | 'source-allies' | 'rider' | 'mount' | 'ally'; who: Who | Who[]; duration: Duration; saveGroup?: string }
   | { kind: 'forced-move'; move: 'push' | 'pull' | 'slide'; squares: number; who: Who | Who[] }
@@ -209,6 +217,8 @@ export type Clause = ClauseBase & (
   | { kind: 'action-point'; amount: number; who: Who | Who[] }
   /** A sense the subject gains: "gains tremorsense 10"; "can see invisible creatures" is 'see-invisible'. */
   | { kind: 'sense'; sense: SenseKind | 'see-invisible'; range?: number; who: Who | Who[]; duration: Duration }
+  /** A mode gained or set ("gains a fly speed of 12"); change: to a non-walk mode ("+2 to its fly speed"). "+2 bonus to speed" is modifier 'speed'. */
+  | { kind: 'speed'; mode: SpeedMode; value?: number; change?: number; hover?: true; who: Who | Who[]; duration: Duration }
   /** Either/or ("slides 4 squares or is knocked prone"): 2+ options of clauses inside this span (with "or"/"either"), no nested choice; chooser when printed. */
   | { kind: 'choice'; options: OptionClause[][]; chooser?: 'self' | 'target' }
   | { kind: 'unparsed'; text: string }
@@ -216,6 +226,9 @@ export type Clause = ClauseBase & (
 
 /** A clause inside a choice option: any clause but another choice. */
 export type OptionClause = Exclude<Clause, { kind: 'choice' }>
+
+/** The movement mode of a speed clause. */
+export type SpeedMode = 'walk' | 'fly' | 'climb' | 'swim' | 'burrow' | 'teleport' | 'overland-flight'
 
 /** What a reroll clause rerolls. */
 export type RerollWhat = 'attack' | 'save' | 'damage' | 'check'
@@ -299,7 +312,9 @@ export interface Trait {
 }
 
 export interface Aura extends Trait {
-  range: number
+  /** Absent when the printed size is not a number: "aura sight" is rangeText "sight". */
+  range?: number
+  rangeText?: string
   /** Printed alternative sizes: "aura 2, or 3 while the balor is bloodied" is range 2, rangeIf [{ value: 3, if: "while the balor is bloodied" }]. */
   rangeIf?: { value: number; if: string | string[] }[]
 }
