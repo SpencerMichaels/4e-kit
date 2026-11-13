@@ -26,8 +26,12 @@ import type {
  * (insubstantial, phasing) and opportunity-reach; typeChoice on damage,
  * ongoing-damage and resistance/vulnerability (type 'choice'); heal perTarget;
  * the 'until' duration; optional sustain line; Monster.skillNotes; Trap.speed.
+ * 5: Attack.altBonus for printed conditional bonuses ("+37 while bloodied");
+ * 'unknown' for Attack.vs and Power.usage when the print names none (validators
+ * flag it for review instead of a guess); grants-ca 'source-allies' includes the
+ * source.
  */
-export const SCHEMA_VERSION = 4
+export const SCHEMA_VERSION = 5
 
 /**
  * A resistance or vulnerability: numeric ("resist 10 fire"), a damage type with
@@ -104,6 +108,7 @@ export type Clause = ClauseBase & (
   | { kind: 'half-damage' }
   | { kind: 'ongoing-damage'; amount: number; types: DamageType[]; typeChoice?: DamageType[]; who: Who; duration: Duration; saveGroup?: string }
   | { kind: 'condition'; condition: ConditionId; who: Who; duration: Duration; saveGroup?: string }
+  /** to: 'source' = the source only; 'source-allies' = the source and its allies; 'all' = every creature. */
   | { kind: 'grants-ca'; to: 'all' | 'source' | 'source-allies'; who: Who; duration: Duration; saveGroup?: string }
   | { kind: 'forced-move'; move: 'push' | 'pull' | 'slide'; squares: number; who: Who }
   | { kind: 'move'; move: 'shift' | 'teleport' | 'swap'; squares?: number; who: Who }
@@ -168,8 +173,10 @@ export interface Attack {
   /** "one creature", "each enemy in the burst". */
   target: string
   bonus: AttackBonus
-  /** 'any': the attacker picks the defense ("vs. any defense"). */
-  vs: Defense | 'any'
+  /** 'any': the attacker picks the defense ("vs. any defense"); 'unknown': the print names none ("+34 vs ;"). */
+  vs: Defense | 'any' | 'unknown'
+  /** Printed conditional bonuses: "(+37 while bloodied)", "or +20 vs. Reflex if the target is bloodied" (vs when it changes). */
+  altBonus?: { value: number; if: string; vs?: Defense }[]
   hit?: Line
   miss?: Line
   critical?: Line
@@ -182,7 +189,8 @@ export interface Attack {
 export interface Power {
   name: string
   action: ActionType
-  usage: Usage
+  /** 'unknown' when the print gives no usage (never a guessed default). */
+  usage: Usage | 'unknown'
   /** Present when usage is 'recharge'. */
   recharge?: Recharge
   /** "2/Encounter". */
