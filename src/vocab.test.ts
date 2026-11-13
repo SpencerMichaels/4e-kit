@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   ACTION_TYPES, ACTION_TYPE_LABELS, ACTION_TYPE_SYMBOLS, CONDITION_IDS, DAMAGE_TYPES,
-  DEFENSES, DEFENSE_LABELS, USAGES, USAGE_LABELS, isOneOf,
+  DEFENSES, DEFENSE_LABELS, USAGES, USAGE_LABELS, isOneOf, monsterXp,
 } from './vocab'
 
 const kebab = /^[a-z]+(-[a-z]+)*$/
@@ -29,5 +29,15 @@ describe('vocabularies', () => {
     expect(isOneOf(DEFENSES, 'reflex')).toBe(true)
     expect(isOneOf(DEFENSES, 'Reflex')).toBe(false)
     expect(isOneOf(DEFENSES, 3)).toBe(false)
+  })
+})
+
+describe('monsterXp', () => {
+  it('applies rank multipliers', () => {
+    expect(monsterXp(5, 'standard')).toBe(200)
+    expect(monsterXp(5, 'elite')).toBe(400)
+    expect(monsterXp(5, 'solo')).toBe(1000)
+    expect(monsterXp(5, 'minion')).toBe(50)
+    expect(monsterXp(34, 'standard')).toBe(19000)
   })
 })

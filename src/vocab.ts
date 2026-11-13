@@ -120,3 +120,21 @@ export type SenseKind = (typeof SENSE_KINDS)[number]
 export function isOneOf<T extends string>(list: readonly T[], value: unknown): value is T {
   return typeof value === 'string' && (list as readonly string[]).includes(value)
 }
+
+/** Experience for one standard monster of each level (DMG p.56). */
+export const XP_BY_LEVEL: Readonly<Record<number, number>> = {
+  1: 100, 2: 125, 3: 150, 4: 175, 5: 200, 6: 250, 7: 300, 8: 350, 9: 400, 10: 500,
+  11: 600, 12: 700, 13: 800, 14: 1000, 15: 1200, 16: 1400, 17: 1600, 18: 2000, 19: 2400, 20: 2800,
+  21: 3200, 22: 4150, 23: 5100, 24: 6050, 25: 7000, 26: 9000, 27: 11000, 28: 13000, 29: 15000, 30: 19000,
+}
+
+/** Rank multipliers on XP_BY_LEVEL: elite x2, solo x5, minion x1/4. */
+export const XP_RANK_MULTIPLIER: Readonly<Record<Rank, number>> = {
+  standard: 1, elite: 2, solo: 5, minion: 0.25,
+}
+
+/** XP for a monster; levels above 30 use the level-30 value. */
+export function monsterXp(level: number, rank: Rank): number {
+  const base = XP_BY_LEVEL[Math.min(Math.max(level, 1), 30)] ?? 0
+  return Math.round(base * XP_RANK_MULTIPLIER[rank])
+}
