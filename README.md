@@ -1,0 +1,33 @@
+# 4e-kit
+
+Shared D&D 4e code for [4e DM Dashboard] and [4ecb]:
+
+- `src/vocab.ts`: closed vocabularies (action types, usage, ranges, defenses,
+  damage types, conditions, durations, roles, sizes) with labels and glyphs.
+- `src/schema.ts`: the content schema for monsters, powers, effect clauses,
+  items, traps, diseases, monster templates and themes.
+- `src/character-snapshot.ts`: an evaluated player character, exported by
+  4ecb and imported by 4e DM Dashboard.
+
+Planned: the shared style kit (theme tokens, icons) and content validators.
+
+## Using it
+
+Each app includes this repo as a git submodule and imports the TypeScript
+source directly through a path alias; there is no build step. The submodule
+commit is the pinned version.
+
+The code must type-check under the strictest settings either app uses (see
+`tsconfig.json`: `exactOptionalPropertyTypes`, `noUncheckedIndexedAccess`) and
+must not depend on Node, Electron, React or the DOM.
+
+## Development
+
+Run tooling inside a devcontainer, not on the host:
+
+    npm run typecheck
+    npm test
+
+## License
+
+GPL-3.0-or-later. See `LICENSE`.

@@ -1,0 +1,19 @@
+{
+  "name": "4e-kit",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Shared D&D 4e vocabulary, content schema, and style kit for 4e DM Dashboard and 4ecb",
+  "license": "GPL-3.0-or-later",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "devDependencies": {
+    "typescript": "^5.9.3",
+    "vitest": "^4.1.12"
+  }
+}
