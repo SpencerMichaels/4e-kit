@@ -79,16 +79,11 @@ export const CONDITION_IDS = [
 export type ConditionId = (typeof CONDITION_IDS)[number]
 
 /**
- * States that are not conditions in the 4e rules (effects that end
- * conditions do not end them), set by a 'status' clause. 'no-provoke': its
- * movement or the power's attack does not provoke opportunity attacks
- * ("without provoking opportunity attacks": duration 'instant' when it rides
- * on one move; "This attack does not provoke": 'this-power').
- * 'no-concealment': it cannot benefit from concealment or invisibility.
- * 'no-regain-hp': it cannot regain hit points; 'no-healing-surges': it cannot
- * spend healing surges; 'ignore-difficult-terrain': it ignores difficult terrain.
- * 'no-stand': it cannot stand up; 'ignore-cover' / 'ignore-concealment': its
- * attacks ignore cover / concealment.
+ * States that are not 4e conditions, set by a 'status' clause. 'no-provoke':
+ * its move or attack does not provoke ('instant' on one move, 'this-power' on
+ * an attack). 'no-concealment': cannot benefit from concealment or
+ * invisibility; 'no-stand': cannot stand up; 'ignore-cover' /
+ * 'ignore-concealment': its attacks ignore them.
  */
 export const STATUS_IDS = [
   'insubstantial', 'phasing', 'no-provoke', 'no-concealment', 'no-regain-hp', 'no-healing-surges', 'ignore-difficult-terrain',
@@ -109,10 +104,7 @@ export type Duration =
   | { readonly kind: 'indefinite' }
   /** While the creature stays in the aura that grants it. */
   | { readonly kind: 'while-in-aura' }
-  /**
-   * Only for the attacks the same power makes ("each at a -2 penalty"; "+4
-   * bonus to the attack roll" on the one attack a power grants).
-   */
+  /** Only the attacks the same power makes ("each at a -2 penalty"). */
   | { readonly kind: 'this-power' }
   /** Always on: trait bonuses ("+2 to all defenses against traps"). */
   | { readonly kind: 'permanent' }
