@@ -8,7 +8,7 @@
 
 import type {
   Ability, ActionType, ConditionId, CreatureType, DamageType, Defense, Duration,
-  Origin, RangeKind, Rank, Recharge, Role, SenseKind, Size, Skill, Usage,
+  Origin, RangeKind, Rank, Recharge, Role, SenseKind, Size, Skill, StatusId, Usage,
 } from './vocab'
 
 /**
@@ -22,8 +22,12 @@ import type {
  * source pages; trap auras and terrain usage; 'triggered' action type; item
  * weight/special/requirement/propertyLevelSteps/alchemical; template
  * rankChange (replaces raisesRank).
+ * 4: clause kinds redirect-attack, crit-range, power-restriction, status
+ * (insubstantial, phasing) and opportunity-reach; typeChoice on damage,
+ * ongoing-damage and resistance/vulnerability (type 'choice'); heal perTarget;
+ * the 'until' duration; optional sustain line; Monster.skillNotes; Trap.speed.
  */
-export const SCHEMA_VERSION = 3
+export const SCHEMA_VERSION = 4
 
 /**
  * A resistance or vulnerability: numeric ("resist 10 fire"), a damage type with
@@ -84,21 +88,30 @@ interface ClauseBase {
   if?: string
 }
 
+/** What a power-restriction clause forbids: "can't use encounter powers", "cannot attack". */
+export type PowerRestriction = 'encounter' | 'daily' | 'attack' | 'all'
+
+/**
+ * typeChoice (damage, ongoing-damage, resistance, vulnerability): "one of the
+ * following types: acid, cold or fire" is chosen when used; `types` is then []
+ * and a resistance's `type` is 'choice'.
+ */
 export type Clause = ClauseBase & (
   /** extra: conditional extra damage (with `if`); critical: inline "(crit 2d8 + 11)". */
-  | { kind: 'damage'; dice: string; types: DamageType[]; who: Who; extra?: true; critical?: true }
+  | { kind: 'damage'; dice: string; types: DamageType[]; typeChoice?: DamageType[]; who: Who; extra?: true; critical?: true }
   /** PC/item damage formula ("2[W] + Strength modifier"); 4ecb evaluates it. */
   | { kind: 'damage-formula'; text: string; types: DamageType[] }
   | { kind: 'half-damage' }
-  | { kind: 'ongoing-damage'; amount: number; types: DamageType[]; who: Who; duration: Duration; saveGroup?: string }
+  | { kind: 'ongoing-damage'; amount: number; types: DamageType[]; typeChoice?: DamageType[]; who: Who; duration: Duration; saveGroup?: string }
   | { kind: 'condition'; condition: ConditionId; who: Who; duration: Duration; saveGroup?: string }
   | { kind: 'grants-ca'; to: 'all' | 'source' | 'source-allies'; who: Who; duration: Duration; saveGroup?: string }
   | { kind: 'forced-move'; move: 'push' | 'pull' | 'slide'; squares: number; who: Who }
   | { kind: 'move'; move: 'shift' | 'teleport' | 'swap'; squares?: number; who: Who }
   /** One clause for "+2 to attack rolls and damage rolls": stat ['attack', 'damage']. */
   | { kind: 'modifier'; stat: ModifierStat | ModifierStat[]; value: number; who: Who; duration: Duration; saveGroup?: string }
-  | { kind: 'resistance' | 'vulnerability'; type: DamageType | 'all'; value: number; who: Who; duration: Duration; saveGroup?: string }
-  | { kind: 'heal'; amount: number | 'surge-value' | 'half-surge-value'; who: Who }
+  | { kind: 'resistance' | 'vulnerability'; type: DamageType | 'all' | 'choice'; typeChoice?: DamageType[]; value: number; who: Who; duration: Duration; saveGroup?: string }
+  /** perTarget: the amount is per creature hit or damaged ("5 hit points for each creature damaged"). */
+  | { kind: 'heal'; amount: number | 'surge-value' | 'half-surge-value'; who: Who; perTarget?: true }
   | { kind: 'temp-hp'; amount: number; who: Who }
   | { kind: 'regeneration'; value: number; who: Who; duration: Duration }
   | { kind: 'revive'; hp: number }
@@ -114,6 +127,16 @@ export type Clause = ClauseBase & (
   /** "makes a saving throw" (with a bonus: "+2 bonus"). */
   | { kind: 'saving-throw'; bonus?: number; who: Who }
   | { kind: 'summon'; creature: string; count?: number }
+  /** "the triggering attack targets the guard instead": who becomes the target. */
+  | { kind: 'redirect-attack'; who: Who }
+  /** "scores a critical hit on a roll of 18-20": min 18. */
+  | { kind: 'crit-range'; min: number; who: Who; duration: Duration }
+  /** "can't use encounter or daily powers": what ['encounter', 'daily']. */
+  | { kind: 'power-restriction'; what: PowerRestriction | PowerRestriction[]; who: Who; duration: Duration; saveGroup?: string }
+  /** "becomes insubstantial and gains phasing": one clause per status. */
+  | { kind: 'status'; status: StatusId; who: Who; duration: Duration; saveGroup?: string }
+  /** "can make opportunity attacks against all enemies within its reach" (Threatening Reach). */
+  | { kind: 'opportunity-reach'; who: Who }
   | { kind: 'unparsed'; text: string }
 )
 
@@ -177,7 +200,8 @@ export interface Power {
   attacks: Attack[]
   /** Effect not tied to a hit or miss. */
   effect?: Line
-  sustain?: { action: ActionType; line: Line }
+  /** line is absent when the sustain is printed only inline ("(sustain minor)"). */
+  sustain?: { action: ActionType; line?: Line }
   special?: Line
   /** Item and theme scaling ("Level 11: 4 fire damage"). */
   levelSteps?: { level: number; text: string }[]
@@ -243,6 +267,8 @@ export interface Monster {
   /** Ability scores. */
   abilities: Record<Ability, number>
   skills: Partial<Record<Skill, number>>
+  /** Printed conditional skill bonuses: "+5 to Stealth checks when in ice or snow". */
+  skillNotes?: string[]
   alignment: string
   languages: string
   equipment: string
@@ -342,6 +368,8 @@ export interface Trap {
   /** Perception and other skill checks; dc null = "no check needed". */
   detect: { skill: string; dc: number | null; text: string }[]
   initiative?: number
+  /** Hazards and creature-like traps that move ("Speed 5", "Speed 0, fly 4 (hover)"). */
+  speed?: Speed
   hp?: number
   /** Non-numeric hit points ("see text"). */
   hpText?: string

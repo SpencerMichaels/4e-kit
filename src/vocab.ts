@@ -78,6 +78,13 @@ export const CONDITION_IDS = [
 ] as const
 export type ConditionId = (typeof CONDITION_IDS)[number]
 
+/**
+ * States that are not conditions in the 4e rules (effects that end
+ * conditions do not end them), set by a 'status' clause.
+ */
+export const STATUS_IDS = ['insubstantial', 'phasing'] as const
+export type StatusId = (typeof STATUS_IDS)[number]
+
 export type Duration =
   | { readonly kind: 'save-ends' }
   /** "until the end of your next turn": whose turn, and whether it's the next one. */
@@ -93,6 +100,8 @@ export type Duration =
   | { readonly kind: 'while-in-aura' }
   /** Always on: trait bonuses ("+2 to all defenses against traps"). */
   | { readonly kind: 'permanent' }
+  /** Ends on a printed event: "until it attacks or is hit", "until the grab ends". Shown; ended by hand. */
+  | { readonly kind: 'until'; readonly text: string }
 
 export const ROLES = ['artillery', 'brute', 'controller', 'lurker', 'skirmisher', 'soldier'] as const
 export type Role = (typeof ROLES)[number]

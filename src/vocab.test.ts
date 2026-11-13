@@ -1,14 +1,14 @@
 import { describe, expect, it } from 'vitest'
 import {
   ACTION_TYPES, ACTION_TYPE_LABELS, ACTION_TYPE_SYMBOLS, CONDITION_IDS, DAMAGE_TYPES,
-  DEFENSES, DEFENSE_LABELS, USAGES, USAGE_LABELS, isOneOf, monsterXp,
+  DEFENSES, DEFENSE_LABELS, STATUS_IDS, USAGES, USAGE_LABELS, isOneOf, monsterXp,
 } from './vocab'
 
 const kebab = /^[a-z]+(-[a-z]+)*$/
 
 describe('vocabularies', () => {
   it('uses lowercase kebab-case ids with no duplicates', () => {
-    for (const list of [ACTION_TYPES, USAGES, DEFENSES, DAMAGE_TYPES, CONDITION_IDS]) {
+    for (const list of [ACTION_TYPES, USAGES, DEFENSES, DAMAGE_TYPES, CONDITION_IDS, STATUS_IDS]) {
       for (const id of list) expect(id).toMatch(kebab)
       expect(new Set(list).size).toBe(list.length)
     }
