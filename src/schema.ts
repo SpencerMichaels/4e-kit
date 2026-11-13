@@ -46,8 +46,12 @@ import type {
  * (only the attacks the same power makes); Monster.savingThrowNotes for printed
  * conditional saving throw bonuses ("+5 against fear effects"), which are no
  * longer folded into savingThrowBonus.
+ * 9: Monster.defensesIf for printed conditional defense values ("Fortitude 23
+ * (25 while bloodied)", "AC 24 (28 against opportunity attacks)"); the base value
+ * stays in defenses. Clause kind sense ("gains tremorsense 10", "can see
+ * invisible creatures": sense 'see-invisible').
  */
-export const SCHEMA_VERSION = 8
+export const SCHEMA_VERSION = 9
 
 /**
  * A resistance or vulnerability: numeric ("resist 10 fire"), a damage type with
@@ -194,6 +198,8 @@ export type Clause = ClauseBase & (
   | { kind: 'reroll'; what: 'attack' | 'save' | 'damage' | 'check'; keep?: 'new' | 'higher' | 'lower'; who: Who | Who[] }
   /** "gains 1 action point". */
   | { kind: 'action-point'; amount: number; who: Who | Who[] }
+  /** A sense the subject gains: "gains tremorsense 10"; "can see invisible creatures" is 'see-invisible'. */
+  | { kind: 'sense'; sense: SenseKind | 'see-invisible'; range?: number; who: Who | Who[]; duration: Duration }
   | { kind: 'unparsed'; text: string }
 )
 
@@ -319,6 +325,11 @@ export interface Monster {
   senses: Sense[]
   speed: Speed
   defenses: Record<Defense, number>
+  /**
+   * Printed conditional defense values: "Fortitude 23 (25 while bloodied)" is
+   * fortitude 23 in defenses plus { defense: 'fortitude', value: 25, if: "while bloodied" }.
+   */
+  defensesIf?: { defense: Defense; value: number; if: string | string[] }[]
   /** The unconditional bonus only ("Saving Throws +5 against fear effects" is 0). */
   savingThrowBonus: number
   /** Printed conditional saving throw bonuses and notes: "+5 against fear effects". */
