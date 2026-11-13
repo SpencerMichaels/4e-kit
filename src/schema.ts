@@ -11,7 +11,21 @@ import type {
   Origin, RangeKind, Rank, Recharge, Role, SenseKind, Size, Skill, Usage,
 } from './vocab'
 
-export const SCHEMA_VERSION = 1
+/**
+ * 2: sources[], 'any' defense, optional resistance values, failedSaves and
+ * extraLines, Power.range, item subtype/armor/tier/price text, trap traits,
+ * level-relative disease DCs, template 'any' role and not/any-of prereqs.
+ */
+export const SCHEMA_VERSION = 2
+
+/** A resistance or vulnerability: numeric ("resist 10 fire") or text-only ("insubstantial"). */
+export interface DamageModifier {
+  type: DamageType | 'all' | string
+  value?: number
+  /** For text-only entries or qualifiers: "half damage from melee and ranged attacks". */
+  text?: string
+  note?: string
+}
 
 // ── Shared pieces ──
 
@@ -103,14 +117,15 @@ export interface Attack {
   /** "one creature", "each enemy in the burst". */
   target: string
   bonus: AttackBonus
-  vs: Defense
+  /** 'any': the attacker picks the defense ("vs. any defense"). */
+  vs: Defense | 'any'
   hit?: Line
   miss?: Line
   critical?: Line
   /** Applies when the hit's save-ends effects end. */
   aftereffect?: Line
-  /** Applies on the target's first failed saving throw. */
-  firstFailedSave?: Line
+  /** "First Failed Saving Throw:", "Second Failed Saving Throw:", "Each Failed Saving Throw:". */
+  failedSaves?: { n: number | 'each'; line: Line }[]
 }
 
 export interface Power {
@@ -126,6 +141,8 @@ export interface Power {
   keywords: string[]
   trigger?: Line
   requirement?: Line
+  /** Range of a power with no attack roll ("close burst 5; allies in the burst"). */
+  range?: Range
   /** Empty for utility powers. */
   attacks: Attack[]
   /** Effect not tied to a hit or miss. */
@@ -134,6 +151,8 @@ export interface Power {
   special?: Line
   /** Item and theme scaling ("Level 11: 4 fire damage"). */
   levelSteps?: { level: number; text: string }[]
+  /** Labeled lines with no field of their own: form lines, numbered eye rays. */
+  extraLines?: { label: string; line: Line }[]
 }
 
 export interface Trait {
@@ -188,8 +207,8 @@ export interface Monster {
   actionPoints: number
   /** String for non-damage immunities: "fear", "gaze", "charm". */
   immune: { type: DamageType | string }[]
-  resist: { type: DamageType | 'all' | string; value: number; note?: string }[]
-  vulnerable: { type: DamageType | string; value: number; note?: string }[]
+  resist: DamageModifier[]
+  vulnerable: DamageModifier[]
   regeneration?: { value: number; suppressedBy: DamageType[]; text: string }
   /** Ability scores. */
   abilities: Record<Ability, number>
@@ -201,7 +220,8 @@ export interface Monster {
   auras: Aura[]
   powers: Power[]
   description: string
-  source: SourceRef
+  /** Every publication that prints the entry; the first is the primary source. */
+  sources: SourceRef[]
   provenance: Provenance
 }
 
@@ -212,6 +232,8 @@ export type DescriptionPart =
   | { type: 'heading'; text: string }
   | { type: 'table'; headers: string[]; rows: string[][] }
   | { type: 'properties'; items: string[] }
+  /** Artifact and set powers printed inside the description. */
+  | { type: 'power'; power: Power }
 
 export type ItemSlot =
   | 'head' | 'neck' | 'arms' | 'hands' | 'waist' | 'feet' | 'ring' | 'body'
@@ -223,9 +245,13 @@ export interface Item {
   category: 'item' | 'weapon' | 'armor' | 'implement' | 'ritual' | 'alchemical' | 'set'
   level: number
   rarity: 'common' | 'uncommon' | 'rare' | null
-  /** Tiers of one item; price in gp. */
-  levels: { level: number; enhancement?: number; price: number }[]
+  /** Tier-only items ("Heroic Tier" artifacts, boons). */
+  tier?: 'heroic' | 'paragon' | 'epic'
+  /** Tiers of one item; price in gp, or null with priceText ("Special", "Priceless"). */
+  levels: { level: number; enhancement?: number; price: number | null; priceText?: string }[]
   slot?: ItemSlot
+  /** Kind within the category: "Consumable", "Divine Boon", "Ammunition", "Mount". */
+  subtype?: string
   /** "Any melee", "Cloth, leather or hide". */
   itemType?: string
   critical?: Line
@@ -241,6 +267,13 @@ export interface Item {
     category: string
     weight?: string
   }
+  armor?: {
+    category: string
+    acBonus: number
+    check?: number
+    speed?: number
+    minEnhancement?: number
+  }
   ritual?: {
     keySkill: string
     castTime: string
@@ -251,7 +284,8 @@ export interface Item {
   itemSet?: string
   flavor: string
   description: DescriptionPart[]
-  source: SourceRef
+  /** Every publication that prints the entry; the first is the primary source. */
+  sources: SourceRef[]
   provenance: Provenance
 }
 
@@ -260,24 +294,28 @@ export interface Item {
 export interface Trap {
   id: string
   name: string
-  kind: 'trap' | 'hazard' | 'terrain' | 'object'
+  kind: 'trap' | 'hazard' | 'terrain' | 'object' | 'area' | 'special'
   level: number
   role: 'blaster' | 'lurker' | 'obstacle' | 'warder' | string
   rank: 'standard' | 'elite' | 'solo'
   xp: number
-  /** Perception and other skill checks to notice or understand it. */
-  detect: { skill: string; dc: number; text: string }[]
+  /** Perception and other skill checks; dc null = "no check needed". */
+  detect: { skill: string; dc: number | null; text: string }[]
   initiative?: number
   hp?: number
+  /** Non-numeric hit points ("see text"). */
+  hpText?: string
   defenses?: Partial<Record<Defense, number>>
   immune: { type: string }[]
-  resist: { type: string; value: number }[]
+  resist: DamageModifier[]
   trigger?: Line
+  traits: Trait[]
   powers: Power[]
   countermeasures: Line[]
   flavor: string
   description: string
-  source: SourceRef
+  /** Every publication that prints the entry; the first is the primary source. */
+  sources: SourceRef[]
   provenance: Provenance
 }
 
@@ -287,11 +325,15 @@ export interface Disease {
   level: number
   /** When the disease is delivered by an attack. */
   attack?: Attack
-  endurance: { improveDc: number; maintainDc: number; worsenText?: string }
+  /** DCs may be level-relative text ("Easy DC", "15 + encounter level"). */
+  endurance: { improveDc: number | { text: string }; maintainDc: number | { text: string }; worsenText?: string }
+  /** The check itself when it isn't plain Endurance: skill and conditions. */
+  check?: { skill: string; text: string }
   /** Stage 0 = cured. */
   stages: { stage: number; final?: true; line: Line }[]
   flavor: string
-  source: SourceRef
+  /** Every publication that prints the entry; the first is the primary source. */
+  sources: SourceRef[]
   provenance: Provenance
 }
 
@@ -304,13 +346,17 @@ export type TemplatePrereq =
   | { kind: 'origin'; any: Origin[] }
   | { kind: 'type'; any: CreatureType[] }
   | { kind: 'all'; of: TemplatePrereq[] }
+  | { kind: 'any-of'; of: TemplatePrereq[] }
+  | { kind: 'not'; of: TemplatePrereq }
+  /** "Solo dragon": checks the creature's rank. */
+  | { kind: 'rank'; any: Rank[] }
 
 export interface MonsterTemplate {
   id: string
   name: string
   kind: 'functional' | 'class'
-  /** Role the creature becomes. */
-  role: Role
+  /** Role the creature becomes; 'any' keeps its current role. */
+  role: Role | 'any'
   /** Standard -> elite, elite -> solo. */
   raisesRank: true
   leader?: true
@@ -328,19 +374,22 @@ export interface MonsterTemplate {
   actionPoints: number
   immune: { type: DamageType | string }[]
   resist: { type: DamageType | string; byTier: { heroic: number; paragon: number; epic: number } }[]
-  vulnerable: { type: DamageType | string; value: number }[]
+  vulnerable: DamageModifier[]
   regeneration?: { value: number; note?: string }
   traits: Trait[]
   auras: Aura[]
   powers: Power[]
   description: string
-  source: SourceRef
+  /** Every publication that prints the entry; the first is the primary source. */
+  sources: SourceRef[]
   provenance: Provenance
 }
 
 export interface ThemePower extends Power {
   category: 'attack' | 'utility'
   recommendedFor?: Role[]
+  /** The printed recommendation when it isn't just roles: "leaders", "Large or larger brutes". */
+  recommendedText?: string
   flavor?: string
 }
 
@@ -351,6 +400,7 @@ export interface MonsterTheme {
   originChange?: Origin
   skills?: { always: string[]; choices?: string[][]; bonus: number }
   powers: ThemePower[]
-  source: SourceRef
+  /** Every publication that prints the entry; the first is the primary source. */
+  sources: SourceRef[]
   provenance: Provenance
 }

@@ -38,6 +38,7 @@ describe('monsterXp', () => {
     expect(monsterXp(5, 'elite')).toBe(400)
     expect(monsterXp(5, 'solo')).toBe(1000)
     expect(monsterXp(5, 'minion')).toBe(50)
-    expect(monsterXp(34, 'standard')).toBe(19000)
+    expect(monsterXp(34, 'standard')).toBe(39000)
+    expect(monsterXp(45, 'standard')).toBe(111000)
   })
 })
