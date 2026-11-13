@@ -47,21 +47,30 @@
   --success: #006400;
   --success-soft: #deedde;
 
-  /* Power usage tones (card header fills; white text on the strong tone,
-     body text on the soft tone) */
+  /* Power usage tones. The strong tone is a card header fill (the same in
+     both themes) with its -contrast color as text; the soft tone is a
+     tinted background for body text. The -contrast values are 4ecb's
+     .tone-* --tone-contrast values. */
   --power-at-will: #006400;
   --power-at-will-soft: #aaddaa;
+  --power-at-will-contrast: #fff;
   --power-encounter: #8b0000;
   --power-encounter-soft: #ddbbbb;
+  --power-encounter-contrast: #fff;
   --power-daily: #808080;
   --power-daily-soft: #d3d3d3;
+  --power-daily-contrast: #17212b;
   --power-utility: #000080;
   --power-utility-soft: #bbbbdd;
+  --power-utility-contrast: #fff;
   --power-feature: #5e3a78;
   --power-feature-soft: #d9cce3;
+  --power-feature-contrast: #fff;
   --power-item: #ff8c00;
   --power-item-soft: #ffe3cc;
+  --power-item-contrast: #251506;
   --tone-neutral: #1d3d5d;
+  --tone-neutral-contrast: #fff;
   --tone: var(--tone-neutral);
   --tone-soft: var(--surface-subtle);
 
