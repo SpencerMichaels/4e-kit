@@ -87,9 +87,12 @@ export type ConditionId = (typeof CONDITION_IDS)[number]
  * 'no-concealment': it cannot benefit from concealment or invisibility.
  * 'no-regain-hp': it cannot regain hit points; 'no-healing-surges': it cannot
  * spend healing surges; 'ignore-difficult-terrain': it ignores difficult terrain.
+ * 'no-stand': it cannot stand up; 'ignore-cover' / 'ignore-concealment': its
+ * attacks ignore cover / concealment.
  */
 export const STATUS_IDS = [
   'insubstantial', 'phasing', 'no-provoke', 'no-concealment', 'no-regain-hp', 'no-healing-surges', 'ignore-difficult-terrain',
+  'no-stand', 'ignore-cover', 'ignore-concealment',
 ] as const
 export type StatusId = (typeof STATUS_IDS)[number]
 

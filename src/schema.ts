@@ -78,8 +78,23 @@ import type {
  * extra-action; zone `blocksLineOfSight`; Attack.name for named sub-attacks;
  * Monster.hpIf ("(99 if in a possessed body)") and regeneration
  * `suppressedText` for printed suppressors that are not damage types.
+ * 13: clause kinds no-damage, drop-to-zero, move-limit, swallow, share-damage,
+ * aura-size and size-change; saveGroup on every clause kind with a duration
+ * (damage, half-damage, regeneration, concealment, crit-range,
+ * difficult-terrain, sense, speed, automatic, lose-resistance, immunity);
+ * condition and concealment `observer` ("treats the dragon as invisible");
+ * forced-move `squares` optional with `squaresText` (also on move) for printed
+ * distances that are not a number ("to the edge of the burst"); modifier
+ * `value` may be dice ("adds 1d6 to the triggering roll"); ModifierStat
+ * 'death-saves', 'escape' and 'roll'; heal `spendSurge`; recharge-power
+ * `others`, `roll` and `who`; choice chooser 'roll' with `rolls`; automatic
+ * 'miss'; lose-resistance `what` (vulnerability, immunity); immunity `to`
+ * may name conditions and 'forced-movement'; PowerRestriction 'fly',
+ * 'non-basic' and 'non-at-will'; sense 'sight-limit'; statuses 'no-stand',
+ * 'ignore-cover', 'ignore-concealment'; Monster.hpText (hp may be 0 with it)
+ * and immune `note`.
  */
-export const SCHEMA_VERSION = 12
+export const SCHEMA_VERSION = 13
 
 /**
  * A resistance or vulnerability: numeric ("resist 10 fire"), a damage type with
@@ -135,10 +150,10 @@ export type Who =
   | 'target' | 'self' | 'each-target' | 'ally' | 'enemies-in-area' | 'creatures-in-area' | 'allies-in-area'
   | 'rider' | 'mount' | 'other'
 
-/** Checks: 'skill:stealth', 'skill-checks' (all), 'ability:str' ("Strength checks"), 'ability-checks'. */
+/** Checks: 'skill:stealth', 'skill-checks' (all), 'ability:str' ("Strength checks"), 'ability-checks'; 'escape': escape checks; 'roll': the triggering roll. */
 export type ModifierStat =
   | 'attack' | 'ac' | 'fortitude' | 'reflex' | 'will' | 'defenses'
-  | 'speed' | 'saving-throws' | 'damage' | 'initiative' | 'forced-movement' | 'recharge'
+  | 'speed' | 'saving-throws' | 'death-saves' | 'damage' | 'initiative' | 'forced-movement' | 'recharge' | 'escape' | 'roll'
   | `skill:${Skill}` | 'skill-checks' | `ability:${Ability}` | 'ability-checks'
 
 /** A dice amount: "1d10", "2d6+3". */
@@ -159,11 +174,11 @@ interface ClauseBase {
   optional?: true
 }
 
-/** What a power-restriction clause forbids: "can't use encounter powers", "cannot attack", "cannot shift". */
+/** What a power-restriction clause forbids: "can't use encounter powers", "cannot shift"; "can make only basic attacks" is 'non-basic', "can use only at-will powers" 'non-at-will'. */
 export type PowerRestriction =
   | 'encounter' | 'daily' | 'attack' | 'all'
   | 'standard' | 'move' | 'minor' | 'immediate' | 'opportunity'
-  | 'shift' | 'teleport' | 'charge' | 'named'
+  | 'shift' | 'teleport' | 'charge' | 'fly' | 'non-basic' | 'non-at-will' | 'named'
 
 /**
  * typeChoice (damage, ongoing-damage, resistance, vulnerability): "one of the
@@ -171,35 +186,38 @@ export type PowerRestriction =
  * and a resistance's `type` is 'choice'.
  */
 export type Clause = ClauseBase & (
-  /** extra: conditional (with `if`); critical: inline "(crit 2d8 + 11)"; duration: dealt later in a window; by: who deals it, if not the source. */
-  | { kind: 'damage'; dice: string; types: DamageType[]; typeChoice?: DamageType[]; who: Who | Who[]; extra?: true; critical?: true; by?: Who | Who[]; per?: string; duration?: Duration }
+  /** extra: conditional (with `if`); critical: inline "(crit 2d8 + 11)"; duration: dealt later in a window or each turn; by: who deals it, if not the source. */
+  | { kind: 'damage'; dice: string; types: DamageType[]; typeChoice?: DamageType[]; who: Who | Who[]; extra?: true; critical?: true; by?: Who | Who[]; per?: string; duration?: Duration; saveGroup?: string }
   /** PC/item damage formula ("2[W] + Strength modifier"); 4ecb evaluates it. */
   | { kind: 'damage-formula'; text: string; types: DamageType[] }
-  | { kind: 'half-damage'; who?: Who | Who[]; duration?: Duration }
+  | { kind: 'half-damage'; who?: Who | Who[]; duration?: Duration; saveGroup?: string }
+  /** "takes no damage" (a roll that grants it, "on a 10 or higher", is `if`). */
+  | { kind: 'no-damage'; who?: Who | Who[]; duration?: Duration; saveGroup?: string }
   /** saveModifier: a printed modifier to the saving throw against it ("(save ends, with a -2 penalty to the saving throw)": -2). increase: "that damage increases by 5". */
   | { kind: 'ongoing-damage'; amount: number; types: DamageType[]; typeChoice?: DamageType[]; who: Who | Who[]; duration: Duration; saveGroup?: string; saveModifier?: number; increase?: true }
-  /** escapeDc: a grab's "(escape DC 20)". "falls asleep" is 'unconscious' with the wake rule as duration. saveModifier as for ongoing-damage. */
-  | { kind: 'condition'; condition: ConditionId; who: Who | Who[]; duration: Duration; saveGroup?: string; escapeDc?: number; saveModifier?: number }
+  /** escapeDc: a grab's "(escape DC 20)". "falls asleep" is 'unconscious' with the wake rule as duration. saveModifier as for ongoing-damage. observer: only that creature sees it so ("treats the dragon as invisible": who self, observer target). */
+  | { kind: 'condition'; condition: ConditionId; who: Who | Who[]; duration: Duration; saveGroup?: string; escapeDc?: number; saveModifier?: number; observer?: Who }
   /** `to` gains it against `who`: 'source' only, 'source-allies' (the source and its allies), 'all', or only a third party ('rider', 'mount', 'ally'). */
   | { kind: 'grants-ca'; to: 'all' | 'source' | 'source-allies' | 'rider' | 'mount' | 'ally'; who: Who | Who[]; duration: Duration; saveGroup?: string }
-  | { kind: 'forced-move'; move: 'push' | 'pull' | 'slide'; squares: number; who: Who | Who[] }
+  /** squaresText: a printed distance that is not a number ("to the edge of the burst", "up to its speed"), then no squares. */
+  | { kind: 'forced-move'; move: 'push' | 'pull' | 'slide'; squares?: number; squaresText?: string; who: Who | Who[] }
   /** move "fly": flies; "move": any other movement of its own ("moves its speed", "jumps 5 squares"); no squares when no number is printed. */
-  | { kind: 'move'; move: 'shift' | 'teleport' | 'swap' | 'fly' | 'move'; squares?: number; who: Who | Who[] }
-  /** One clause for "+2 to attack rolls and damage rolls": stat ['attack', 'damage']. */
-  | { kind: 'modifier'; stat: ModifierStat | ModifierStat[]; value: number; who: Who | Who[]; duration: Duration; saveGroup?: string; per?: string }
+  | { kind: 'move'; move: 'shift' | 'teleport' | 'swap' | 'fly' | 'move'; squares?: number; squaresText?: string; who: Who | Who[] }
+  /** One clause for "+2 to attack rolls and damage rolls": stat ['attack', 'damage']. value may be dice ("adds 1d6": "1d6"; "subtracts 1d6": "-1d6"). */
+  | { kind: 'modifier'; stat: ModifierStat | ModifierStat[]; value: number | DiceAmount; who: Who | Who[]; duration: Duration; saveGroup?: string; per?: string }
   | { kind: 'resistance' | 'vulnerability'; type: DamageType | 'all' | 'choice'; typeChoice?: DamageType[]; value: number; who: Who | Who[]; duration: Duration; saveGroup?: string }
-  /** perTarget: per creature hit or damaged ("5 hit points for each creature damaged"). per (also damage, modifier, temp-hp): printed "for each ..." words. */
-  | { kind: 'heal'; amount: number | DiceAmount | 'surge-value' | 'half-surge-value' | 'damage-dealt' | 'half-damage-dealt'; who: Who | Who[]; perTarget?: true; per?: string }
+  /** perTarget: per creature hit or damaged ("5 hit points for each creature damaged"). per (also damage, modifier, temp-hp): printed "for each ..." words. spendSurge: "spends a healing surge". */
+  | { kind: 'heal'; amount: number | DiceAmount | 'surge-value' | 'half-surge-value' | 'damage-dealt' | 'half-damage-dealt'; who: Who | Who[]; perTarget?: true; per?: string; spendSurge?: true }
   | { kind: 'temp-hp'; amount: number | DiceAmount | 'surge-value'; who: Who | Who[]; per?: string }
-  | { kind: 'regeneration'; value: number; who: Who | Who[]; duration: Duration }
+  | { kind: 'regeneration'; value: number; who: Who | Who[]; duration: Duration; saveGroup?: string }
   | { kind: 'revive'; hp: number }
   /** "uses bite twice", "makes two claw attacks": power is the printed name. */
   | { kind: 'use-power'; power: string; times?: number; who: Who | Who[] }
-  /** "<power> recharges". */
-  | { kind: 'recharge-power'; power: string }
+  /** "<power> recharges"; others: more powers in the same words ("X and Y recharge"); roll: it rolls to recharge; who: whose power, if not the source's. */
+  | { kind: 'recharge-power'; power: string; others?: string[]; roll?: true; who?: Who | Who[] }
   | { kind: 'lose-healing-surge'; count: number; who: Who | Who[] }
-  /** Partial concealment unless total. */
-  | { kind: 'concealment'; total?: true; who: Who | Who[]; duration: Duration }
+  /** Partial concealment unless total. observer: only against that creature. */
+  | { kind: 'concealment'; total?: true; who: Who | Who[]; duration: Duration; saveGroup?: string; observer?: Who }
   /** The power creates a zone; what the zone does is other clauses with `if`. */
   | { kind: 'zone'; duration: Duration; blocksLineOfSight?: true }
   /** "makes a saving throw" (with a bonus: "+2 bonus"). */
@@ -208,7 +226,7 @@ export type Clause = ClauseBase & (
   /** "the triggering attack targets the guard instead": who becomes the target. */
   | { kind: 'redirect-attack'; who: Who | Who[] }
   /** "scores a critical hit on a roll of 18-20": min 18. */
-  | { kind: 'crit-range'; min: number; who: Who | Who[]; duration: Duration }
+  | { kind: 'crit-range'; min: number; who: Who | Who[]; duration: Duration; saveGroup?: string }
   /** "can't use encounter or daily powers": what ['encounter', 'daily']; 'named': the printed names in `powers`. */
   | { kind: 'power-restriction'; what: PowerRestriction | PowerRestriction[]; powers?: string[]; who: Who | Who[]; duration: Duration; saveGroup?: string }
   /** "becomes insubstantial and gains phasing": one clause per status. */
@@ -220,7 +238,7 @@ export type Clause = ClauseBase & (
    * `who` limits it ("difficult terrain for enemies": enemies-in-area), absent
    * for every creature.
    */
-  | { kind: 'difficult-terrain'; who?: Who | Who[]; duration: Duration }
+  | { kind: 'difficult-terrain'; who?: Who | Who[]; duration: Duration; saveGroup?: string }
   /** "charges the enemy and makes the following attack"; "can charge" is `optional`. */
   | { kind: 'charge'; who: Who | Who[] }
   /**
@@ -235,20 +253,32 @@ export type Clause = ClauseBase & (
   | { kind: 'reroll'; what: RerollWhat | RerollWhat[]; keep?: 'new' | 'higher' | 'lower'; who: Who | Who[] }
   /** "gains 1 action point". */
   | { kind: 'action-point'; amount: number; who: Who | Who[] }
-  /** A sense the subject gains: "gains tremorsense 10"; "can see invisible creatures" is 'see-invisible'. */
-  | { kind: 'sense'; sense: SenseKind | 'see-invisible'; range?: number; who: Who | Who[]; duration: Duration }
+  /** A sense the subject gains: "gains tremorsense 10"; "can see invisible creatures" is 'see-invisible'; "cannot see more than 2 squares away" 'sight-limit' (range 2). */
+  | { kind: 'sense'; sense: SenseKind | 'see-invisible' | 'sight-limit'; range?: number; who: Who | Who[]; duration: Duration; saveGroup?: string }
   /** A mode gained or set ("gains a fly speed of 12"); change: to a non-walk mode ("+2 to its fly speed"). "+2 bonus to speed" is modifier 'speed'. */
-  | { kind: 'speed'; mode: SpeedMode; value?: number; change?: number; hover?: true; who: Who | Who[]; duration: Duration }
-  /** Either/or ("slides 4 squares or is knocked prone"): 2+ options of clauses inside this span (with "or"/"either"), no nested choice; chooser when printed. */
-  | { kind: 'choice'; options: OptionClause[][]; chooser?: 'self' | 'target' }
-  | { kind: 'automatic'; what: 'hit' | 'critical' | 'save'; who: Who | Who[]; duration: Duration }
-  /** value: only that much ("ignores 10 points of resist all"). */
-  | { kind: 'lose-resistance'; types: (DamageType | 'all')[]; value?: number; who: Who | Who[]; duration: Duration }
-  /** to: damage types, 'all' (all damage) or printed words ("fear"). */
-  | { kind: 'immunity'; to: string[]; who: Who | Who[]; duration: Duration }
+  | { kind: 'speed'; mode: SpeedMode; value?: number; change?: number; hover?: true; who: Who | Who[]; duration: Duration; saveGroup?: string }
+  /** Either/or ("slides 4 squares or is knocked prone"): 2+ options of clauses inside this span (with "or"/"either"), no nested choice; chooser when printed; 'roll': a die picks the option, `rolls` the printed results per option ("1-3"). */
+  | { kind: 'choice'; options: OptionClause[][]; chooser?: 'self' | 'target' | 'roll'; rolls?: string[] }
+  | { kind: 'automatic'; what: 'hit' | 'miss' | 'critical' | 'save'; who: Who | Who[]; duration: Duration; saveGroup?: string }
+  /** value: only that much ("ignores 10 points of resist all"); what: also or instead vulnerabilities or immunities ("loses vulnerability to radiant"). */
+  | { kind: 'lose-resistance'; types: (DamageType | 'all')[]; value?: number; what?: ('resistance' | 'vulnerability' | 'immunity')[]; who: Who | Who[]; duration: Duration; saveGroup?: string }
+  /** to: damage types, 'all' (all damage), condition ids ("cannot be knocked prone": 'prone'), 'forced-movement', or printed words ("fear"). */
+  | { kind: 'immunity'; to: string[]; who: Who | Who[]; duration: Duration; saveGroup?: string }
   /** No conditions: the printed effects end ("ends one effect a save can end"). */
   | { kind: 'end-effect'; conditions?: ConditionId[]; who: Who | Who[] }
   | { kind: 'extra-action'; action: ActionType; who: Who | Who[] }
+  /** "drops to 0 hit points", "kills the target instantly". */
+  | { kind: 'drop-to-zero'; who: Who | Who[] }
+  /** "can't move away from the dragon" (away), "closer", "can't leave the zone" (leave), "its movement ends" (stop), "cannot move more than 2 squares from X" (within, squares). */
+  | { kind: 'move-limit'; limit: 'away' | 'closer' | 'leave' | 'stop' | 'within'; squares?: number; who: Who | Who[]; duration: Duration; saveGroup?: string }
+  /** "the target is swallowed" (also engulfed, absorbed): inside the source; effects while swallowed are other clauses with `if`. */
+  | { kind: 'swallow'; who: Who | Who[]; duration: Duration; escapeDc?: number }
+  /** who takes `part` of damage another creature takes ("takes half that damage", "the ally takes the rest"); transfer: that creature takes none of it. */
+  | { kind: 'share-damage'; part: 'all' | 'half' | 'rest'; transfer?: true; who: Who | Who[]; duration?: Duration }
+  /** An aura's size set (value) or changed (change): "expands to aura 3"; aura: its printed name if not this aura. */
+  | { kind: 'aura-size'; aura?: string; value?: number; change?: number; duration: Duration }
+  /** "becomes Large", "reach becomes 2". */
+  | { kind: 'size-change'; size?: Size; reach?: number; who: Who | Who[]; duration: Duration; saveGroup?: string }
   | { kind: 'unparsed'; text: string }
 )
 
@@ -380,8 +410,10 @@ export interface Monster {
   /** Subtypes: "undead", "devil", "mount". */
   keywords: string[]
   xp: number
-  /** Minions: 1. Bloodied is derived. */
+  /** Minions: 1. Bloodied is derived. 0 only with hpText. */
   hp: number
+  /** Printed HP words that are not a number, or a rule printed on the HP line ("infinite hit points; cannot be bloodied"). */
+  hpText?: string
   /** "HP 66 (99 if in a possessed body)": [{ value: 99, if: "if in a possessed body" }]. */
   hpIf?: { value: number; if: string | string[] }[]
   initiative: number
@@ -399,8 +431,8 @@ export interface Monster {
   /** Printed conditional saving throw bonuses and notes: "+5 against fear effects". */
   savingThrowNotes?: string[]
   actionPoints: number
-  /** String for non-damage immunities: "fear", "gaze", "charm". */
-  immune: { type: DamageType | string }[]
+  /** String for non-damage immunities: "fear", "gaze", "charm"; note: a printed qualifier ("while bloodied only"). */
+  immune: { type: DamageType | string; note?: string }[]
   resist: DamageModifier[]
   vulnerable: DamageModifier[]
   /** suppressedText: printed suppressors that are not damage types ("direct sunlight"). */
