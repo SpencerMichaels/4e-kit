@@ -85,8 +85,12 @@ export type ConditionId = (typeof CONDITION_IDS)[number]
  * ("without provoking opportunity attacks": duration 'instant' when it rides
  * on one move; "This attack does not provoke": 'this-power').
  * 'no-concealment': it cannot benefit from concealment or invisibility.
+ * 'no-regain-hp': it cannot regain hit points; 'no-healing-surges': it cannot
+ * spend healing surges; 'ignore-difficult-terrain': it ignores difficult terrain.
  */
-export const STATUS_IDS = ['insubstantial', 'phasing', 'no-provoke', 'no-concealment'] as const
+export const STATUS_IDS = [
+  'insubstantial', 'phasing', 'no-provoke', 'no-concealment', 'no-regain-hp', 'no-healing-surges', 'ignore-difficult-terrain',
+] as const
 export type StatusId = (typeof STATUS_IDS)[number]
 
 export type Duration =

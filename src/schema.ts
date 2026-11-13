@@ -64,8 +64,22 @@ import type {
  * 'initiative'; saveModifier on condition and ongoing-damage clauses ("(save
  * ends, with a -2 penalty to the saving throw)": -2); Aura.range is optional,
  * with Aura.rangeText for a printed size that is not a number ("aura sight").
+ * 12: damage `duration` (a lingering window: "deal 1d6 extra damage until the
+ * end of its next turn") and `by` (who deals it, when not the source: "undead
+ * allies deal 2d6 extra fire damage"); `per` (the printed "for each ..." words)
+ * on damage, modifier, heal and temp-hp; heal and temp-hp amounts may be dice
+ * ("1d10") or 'damage-dealt' / 'half-damage-dealt' (heal), temp-hp also
+ * 'surge-value'; half-damage `who`/`duration`; ongoing-damage `increase`
+ * ("that damage increases by 5"); statuses 'no-regain-hp', 'no-healing-surges',
+ * 'ignore-difficult-terrain'; power-restriction actions, movement and 'named'
+ * (with `powers`); ModifierStat 'forced-movement' ("moves 1 square fewer than
+ * the effect specifies": -1) and 'recharge' (recharge rolls); clause kinds
+ * automatic (hit, critical, save), lose-resistance, immunity, end-effect and
+ * extra-action; zone `blocksLineOfSight`; Attack.name for named sub-attacks;
+ * Monster.hpIf ("(99 if in a possessed body)") and regeneration
+ * `suppressedText` for printed suppressors that are not damage types.
  */
-export const SCHEMA_VERSION = 11
+export const SCHEMA_VERSION = 12
 
 /**
  * A resistance or vulnerability: numeric ("resist 10 fire"), a damage type with
@@ -124,8 +138,11 @@ export type Who =
 /** Checks: 'skill:stealth', 'skill-checks' (all), 'ability:str' ("Strength checks"), 'ability-checks'. */
 export type ModifierStat =
   | 'attack' | 'ac' | 'fortitude' | 'reflex' | 'will' | 'defenses'
-  | 'speed' | 'saving-throws' | 'damage' | 'initiative'
+  | 'speed' | 'saving-throws' | 'damage' | 'initiative' | 'forced-movement' | 'recharge'
   | `skill:${Skill}` | 'skill-checks' | `ability:${Ability}` | 'ability-checks'
+
+/** A dice amount: "1d10", "2d6+3". */
+export type DiceAmount = `${number}d${number}${string}`
 
 interface ClauseBase {
   /** Character span [start, end) in the owning Line.text. */
@@ -142,8 +159,15 @@ interface ClauseBase {
   optional?: true
 }
 
-/** What a power-restriction clause forbids: "can't use encounter powers", "cannot attack". */
-export type PowerRestriction = 'encounter' | 'daily' | 'attack' | 'all'
+/**
+ * What a power-restriction clause forbids: "can't use encounter powers",
+ * "cannot attack", an action ("can't take immediate or opportunity actions"),
+ * a movement ("cannot shift"), or 'named' powers listed in `powers`.
+ */
+export type PowerRestriction =
+  | 'encounter' | 'daily' | 'attack' | 'all'
+  | 'standard' | 'move' | 'minor' | 'immediate' | 'opportunity'
+  | 'shift' | 'teleport' | 'charge' | 'named'
 
 /**
  * typeChoice (damage, ongoing-damage, resistance, vulnerability): "one of the
@@ -151,13 +175,19 @@ export type PowerRestriction = 'encounter' | 'daily' | 'attack' | 'all'
  * and a resistance's `type` is 'choice'.
  */
 export type Clause = ClauseBase & (
-  /** extra: conditional extra damage (with `if`); critical: inline "(crit 2d8 + 11)". */
-  | { kind: 'damage'; dice: string; types: DamageType[]; typeChoice?: DamageType[]; who: Who | Who[]; extra?: true; critical?: true }
+  /**
+   * extra: conditional extra damage (with `if`); critical: inline "(crit 2d8 + 11)".
+   * duration: damage dealt later during a window ("1d6 extra damage until the
+   * end of its next turn"); by: who deals it when not the source; per: the
+   * printed scaling words ("for each creature in the burst").
+   */
+  | { kind: 'damage'; dice: string; types: DamageType[]; typeChoice?: DamageType[]; who: Who | Who[]; extra?: true; critical?: true; by?: Who | Who[]; per?: string; duration?: Duration }
   /** PC/item damage formula ("2[W] + Strength modifier"); 4ecb evaluates it. */
   | { kind: 'damage-formula'; text: string; types: DamageType[] }
-  | { kind: 'half-damage' }
-  /** saveModifier: a printed modifier to the saving throw against it ("(save ends, with a -2 penalty to the saving throw)": -2). */
-  | { kind: 'ongoing-damage'; amount: number; types: DamageType[]; typeChoice?: DamageType[]; who: Who | Who[]; duration: Duration; saveGroup?: string; saveModifier?: number }
+  /** who and duration when printed ("takes half damage from weapon attacks until the end of its next turn"). */
+  | { kind: 'half-damage'; who?: Who | Who[]; duration?: Duration }
+  /** saveModifier: a printed modifier to the saving throw against it ("(save ends, with a -2 penalty to the saving throw)": -2). increase: adds to ongoing damage the subject already takes. */
+  | { kind: 'ongoing-damage'; amount: number; types: DamageType[]; typeChoice?: DamageType[]; who: Who | Who[]; duration: Duration; saveGroup?: string; saveModifier?: number; increase?: true }
   /** escapeDc: a grab's "(escape DC 20)". "falls asleep" is 'unconscious' with the wake rule as duration. saveModifier as for ongoing-damage. */
   | { kind: 'condition'; condition: ConditionId; who: Who | Who[]; duration: Duration; saveGroup?: string; escapeDc?: number; saveModifier?: number }
   /** `to` gains it against `who`: 'source' only, 'source-allies' (the source and its allies), 'all', or only a third party ('rider', 'mount', 'ally'). */
@@ -166,11 +196,11 @@ export type Clause = ClauseBase & (
   /** move "fly": flies; "move": any other movement of its own ("moves its speed", "jumps 5 squares"); no squares when no number is printed. */
   | { kind: 'move'; move: 'shift' | 'teleport' | 'swap' | 'fly' | 'move'; squares?: number; who: Who | Who[] }
   /** One clause for "+2 to attack rolls and damage rolls": stat ['attack', 'damage']. */
-  | { kind: 'modifier'; stat: ModifierStat | ModifierStat[]; value: number; who: Who | Who[]; duration: Duration; saveGroup?: string }
+  | { kind: 'modifier'; stat: ModifierStat | ModifierStat[]; value: number; who: Who | Who[]; duration: Duration; saveGroup?: string; per?: string }
   | { kind: 'resistance' | 'vulnerability'; type: DamageType | 'all' | 'choice'; typeChoice?: DamageType[]; value: number; who: Who | Who[]; duration: Duration; saveGroup?: string }
-  /** perTarget: the amount is per creature hit or damaged ("5 hit points for each creature damaged"). */
-  | { kind: 'heal'; amount: number | 'surge-value' | 'half-surge-value'; who: Who | Who[]; perTarget?: true }
-  | { kind: 'temp-hp'; amount: number; who: Who | Who[] }
+  /** perTarget: the amount is per creature hit or damaged ("5 hit points for each creature damaged"); per: other printed scaling words. */
+  | { kind: 'heal'; amount: number | DiceAmount | 'surge-value' | 'half-surge-value' | 'damage-dealt' | 'half-damage-dealt'; who: Who | Who[]; perTarget?: true; per?: string }
+  | { kind: 'temp-hp'; amount: number | DiceAmount | 'surge-value'; who: Who | Who[]; per?: string }
   | { kind: 'regeneration'; value: number; who: Who | Who[]; duration: Duration }
   | { kind: 'revive'; hp: number }
   /** "uses bite twice", "makes two claw attacks": power is the printed name. */
@@ -181,7 +211,7 @@ export type Clause = ClauseBase & (
   /** Partial concealment unless total. */
   | { kind: 'concealment'; total?: true; who: Who | Who[]; duration: Duration }
   /** The power creates a zone; what the zone does is other clauses with `if`. */
-  | { kind: 'zone'; duration: Duration }
+  | { kind: 'zone'; duration: Duration; blocksLineOfSight?: true }
   /** "makes a saving throw" (with a bonus: "+2 bonus"). */
   | { kind: 'saving-throw'; bonus?: number; who: Who | Who[] }
   | { kind: 'summon'; creature: string; count?: number }
@@ -189,8 +219,8 @@ export type Clause = ClauseBase & (
   | { kind: 'redirect-attack'; who: Who | Who[] }
   /** "scores a critical hit on a roll of 18-20": min 18. */
   | { kind: 'crit-range'; min: number; who: Who | Who[]; duration: Duration }
-  /** "can't use encounter or daily powers": what ['encounter', 'daily']. */
-  | { kind: 'power-restriction'; what: PowerRestriction | PowerRestriction[]; who: Who | Who[]; duration: Duration; saveGroup?: string }
+  /** "can't use encounter or daily powers": what ['encounter', 'daily']; 'named': the printed power names in `powers`. */
+  | { kind: 'power-restriction'; what: PowerRestriction | PowerRestriction[]; powers?: string[]; who: Who | Who[]; duration: Duration; saveGroup?: string }
   /** "becomes insubstantial and gains phasing": one clause per status. */
   | { kind: 'status'; status: StatusId; who: Who | Who[]; duration: Duration; saveGroup?: string }
   /** "can make opportunity attacks against all enemies within its reach" (Threatening Reach). */
@@ -221,6 +251,16 @@ export type Clause = ClauseBase & (
   | { kind: 'speed'; mode: SpeedMode; value?: number; change?: number; hover?: true; who: Who | Who[]; duration: Duration }
   /** Either/or ("slides 4 squares or is knocked prone"): 2+ options of clauses inside this span (with "or"/"either"), no nested choice; chooser when printed. */
   | { kind: 'choice'; options: OptionClause[][]; chooser?: 'self' | 'target' }
+  /** "automatically hits", "the attack is automatically a critical hit", "automatically succeeds on saving throws". */
+  | { kind: 'automatic'; what: 'hit' | 'critical' | 'save'; who: Who | Who[]; duration: Duration }
+  /** "loses necrotic resistance", "fire resistance is negated"; value: only that much ("ignores 10 points of resist all"). */
+  | { kind: 'lose-resistance'; types: (DamageType | 'all')[]; value?: number; who: Who | Who[]; duration: Duration }
+  /** "immune to all damage" (to ['all']), "immune to fear": damage types, 'all', or the printed words. */
+  | { kind: 'immunity'; to: string[]; who: Who | Who[]; duration: Duration }
+  /** Ends conditions ("is no longer marked": ['marked']) or, with none listed, the printed effects ("ends one effect a save can end"). */
+  | { kind: 'end-effect'; conditions?: ConditionId[]; who: Who | Who[] }
+  /** "can take an extra move action", "takes a move action as a free action": action 'move'. */
+  | { kind: 'extra-action'; action: ActionType; who: Who | Who[] }
   | { kind: 'unparsed'; text: string }
 )
 
@@ -255,6 +295,8 @@ export interface Range {
 
 export interface Attack {
   label: 'primary' | 'secondary' | 'tertiary'
+  /** A named sub-attack in a multi-attack power ("Earth Shock"). */
+  name?: string
   /** When a secondary attack happens relative to the previous one. */
   after?: 'hit' | 'miss' | 'always'
   range: Range
@@ -352,6 +394,8 @@ export interface Monster {
   xp: number
   /** Minions: 1. Bloodied is derived. */
   hp: number
+  /** Printed alternative hit points: "HP 66 (99 if in a possessed body)" is hpIf [{ value: 99, if: "if in a possessed body" }]. */
+  hpIf?: { value: number; if: string | string[] }[]
   initiative: number
   perception: number
   senses: Sense[]
@@ -371,7 +415,8 @@ export interface Monster {
   immune: { type: DamageType | string }[]
   resist: DamageModifier[]
   vulnerable: DamageModifier[]
-  regeneration?: { value: number; suppressedBy: DamageType[]; text: string }
+  /** suppressedText: printed suppressors that are not damage types ("while exposed to direct sunlight"). */
+  regeneration?: { value: number; suppressedBy: DamageType[]; suppressedText?: string; text: string }
   /** Ability scores. */
   abilities: Record<Ability, number>
   skills: Partial<Record<Skill, number>>
