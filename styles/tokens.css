@@ -47,26 +47,28 @@
   --success: #006400;
   --success-soft: #deedde;
 
-  /* Power usage tones. The strong tone is a card header fill (the same in
-     both themes) with its -contrast color as text; the soft tone is a
-     tinted background for body text. The -contrast values are 4ecb's
-     .tone-* --tone-contrast values. */
-  --power-at-will: #006400;
+  /* Power usage tones (4ecb D124: the softened on-screen set; 4ecb's
+     printed cards keep the vivid legacy colors). The strong tone is a card
+     header fill with its -contrast color as text; the soft tone is a tinted
+     background for body text. The dark theme overrides all three. The
+     strong and -contrast values are 4ecb's .tone-* --tone and
+     --tone-contrast values. */
+  --power-at-will: #286023;
   --power-at-will-soft: #aaddaa;
   --power-at-will-contrast: #fff;
-  --power-encounter: #8b0000;
+  --power-encounter: #782b22;
   --power-encounter-soft: #ddbbbb;
   --power-encounter-contrast: #fff;
   --power-daily: #808080;
   --power-daily-soft: #d3d3d3;
   --power-daily-contrast: #17212b;
-  --power-utility: #000080;
+  --power-utility: #09205b;
   --power-utility-soft: #bbbbdd;
   --power-utility-contrast: #fff;
   --power-feature: #5e3a78;
   --power-feature-soft: #d9cce3;
   --power-feature-contrast: #fff;
-  --power-item: #ff8c00;
+  --power-item: #f49340;
   --power-item-soft: #ffe3cc;
   --power-item-contrast: #251506;
   --tone-neutral: #1d3d5d;
@@ -118,6 +120,19 @@
   --power-utility-soft: #222a55;
   --power-feature-soft: #33233f;
   --power-item-soft: #49341d;
+  /* Dark tones are lighter fills under dark text (4ecb's dark .tone-*). */
+  --power-at-will: #7dbc8a;
+  --power-at-will-contrast: #111727;
+  --power-encounter: #d68784;
+  --power-encounter-contrast: #111727;
+  --power-daily: #b8bec7;
+  --power-daily-contrast: #111727;
+  --power-utility: #8d9fe0;
+  --power-utility-contrast: #111727;
+  --power-feature: #b08ecd;
+  --power-feature-contrast: #111727;
+  --power-item: #e8ab5c;
+  --power-item-contrast: #111727;
   color-scheme: dark;
 }
 
@@ -150,6 +165,19 @@
     --power-utility-soft: #222a55;
     --power-feature-soft: #33233f;
     --power-item-soft: #49341d;
+    /* Dark tones are lighter fills under dark text (4ecb's dark .tone-*). */
+    --power-at-will: #7dbc8a;
+    --power-at-will-contrast: #111727;
+    --power-encounter: #d68784;
+    --power-encounter-contrast: #111727;
+    --power-daily: #b8bec7;
+    --power-daily-contrast: #111727;
+    --power-utility: #8d9fe0;
+    --power-utility-contrast: #111727;
+    --power-feature: #b08ecd;
+    --power-feature-contrast: #111727;
+    --power-item: #e8ab5c;
+    --power-item-contrast: #111727;
     color-scheme: dark;
   }
 }
