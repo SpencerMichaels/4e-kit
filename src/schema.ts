@@ -15,10 +15,21 @@ import type {
  * 2: sources[], 'any' defense, optional resistance values, failedSaves and
  * extraLines, Power.range, item subtype/armor/tier/price text, trap traits,
  * level-relative disease DCs, template 'any' role and not/any-of prereqs.
+ * 3: clause kinds use-power, recharge-power, lose-healing-surge, concealment,
+ * zone, saving-throw and summon; extra/critical damage; multi-stat modifiers;
+ * saveGroup on modifier, resistance/vulnerability and grants-ca; durations
+ * while-in-aura and permanent; area Who values; Power.usesPerRound; string
+ * source pages; trap auras and terrain usage; 'triggered' action type; item
+ * weight/special/requirement/propertyLevelSteps/alchemical; template
+ * rankChange (replaces raisesRank).
  */
-export const SCHEMA_VERSION = 2
+export const SCHEMA_VERSION = 3
 
-/** A resistance or vulnerability: numeric ("resist 10 fire") or text-only ("insubstantial"). */
+/**
+ * A resistance or vulnerability: numeric ("resist 10 fire"), a damage type with
+ * no number, or text-only. Text-only entries use type 'special' and keep the
+ * printed wording in text: { type: 'special', text: 'insubstantial' }.
+ */
 export interface DamageModifier {
   type: DamageType | 'all' | string
   value?: number
@@ -31,7 +42,8 @@ export interface DamageModifier {
 
 export interface SourceRef {
   book: string
-  page?: number
+  /** A page number, or printed text for booklet ranges ("2-77"). */
+  page?: number | string
 }
 
 export interface Provenance {
@@ -57,7 +69,9 @@ export interface Line {
 
 // ── Effect clauses ──
 
-export type Who = 'target' | 'self' | 'each-target' | 'ally' | 'enemies-in-area' | 'other'
+/** "any living creature in the zone" is creatures-in-area with an `if`. */
+export type Who =
+  | 'target' | 'self' | 'each-target' | 'ally' | 'enemies-in-area' | 'creatures-in-area' | 'allies-in-area' | 'other'
 
 export type ModifierStat =
   | 'attack' | 'ac' | 'fortitude' | 'reflex' | 'will' | 'defenses'
@@ -71,21 +85,35 @@ interface ClauseBase {
 }
 
 export type Clause = ClauseBase & (
-  | { kind: 'damage'; dice: string; types: DamageType[]; who: Who }
+  /** extra: conditional extra damage (with `if`); critical: inline "(crit 2d8 + 11)". */
+  | { kind: 'damage'; dice: string; types: DamageType[]; who: Who; extra?: true; critical?: true }
   /** PC/item damage formula ("2[W] + Strength modifier"); 4ecb evaluates it. */
   | { kind: 'damage-formula'; text: string; types: DamageType[] }
   | { kind: 'half-damage' }
   | { kind: 'ongoing-damage'; amount: number; types: DamageType[]; who: Who; duration: Duration; saveGroup?: string }
   | { kind: 'condition'; condition: ConditionId; who: Who; duration: Duration; saveGroup?: string }
-  | { kind: 'grants-ca'; to: 'all' | 'source' | 'source-allies'; who: Who; duration: Duration }
+  | { kind: 'grants-ca'; to: 'all' | 'source' | 'source-allies'; who: Who; duration: Duration; saveGroup?: string }
   | { kind: 'forced-move'; move: 'push' | 'pull' | 'slide'; squares: number; who: Who }
   | { kind: 'move'; move: 'shift' | 'teleport' | 'swap'; squares?: number; who: Who }
-  | { kind: 'modifier'; stat: ModifierStat; value: number; who: Who; duration: Duration }
-  | { kind: 'resistance' | 'vulnerability'; type: DamageType | 'all'; value: number; who: Who; duration: Duration }
+  /** One clause for "+2 to attack rolls and damage rolls": stat ['attack', 'damage']. */
+  | { kind: 'modifier'; stat: ModifierStat | ModifierStat[]; value: number; who: Who; duration: Duration; saveGroup?: string }
+  | { kind: 'resistance' | 'vulnerability'; type: DamageType | 'all'; value: number; who: Who; duration: Duration; saveGroup?: string }
   | { kind: 'heal'; amount: number | 'surge-value' | 'half-surge-value'; who: Who }
   | { kind: 'temp-hp'; amount: number; who: Who }
   | { kind: 'regeneration'; value: number; who: Who; duration: Duration }
   | { kind: 'revive'; hp: number }
+  /** "uses bite twice", "makes two claw attacks": power is the printed name. */
+  | { kind: 'use-power'; power: string; times?: number; who: Who }
+  /** "<power> recharges". */
+  | { kind: 'recharge-power'; power: string }
+  | { kind: 'lose-healing-surge'; count: number; who: Who }
+  /** Partial concealment unless total. */
+  | { kind: 'concealment'; total?: true; who: Who; duration: Duration }
+  /** The power creates a zone; what the zone does is other clauses with `if`. */
+  | { kind: 'zone'; duration: Duration }
+  /** "makes a saving throw" (with a bonus: "+2 bonus"). */
+  | { kind: 'saving-throw'; bonus?: number; who: Who }
+  | { kind: 'summon'; creature: string; count?: number }
   | { kind: 'unparsed'; text: string }
 )
 
@@ -136,6 +164,8 @@ export interface Power {
   recharge?: Recharge
   /** "2/Encounter". */
   usesPerEncounter?: number
+  /** "1/round". */
+  usesPerRound?: number
   /** Basic attack icon. */
   basic?: 'melee' | 'ranged'
   keywords: string[]
@@ -256,6 +286,12 @@ export interface Item {
   itemType?: string
   critical?: Line
   properties: Line[]
+  /** Property scaling ("Level 15: +2 to the bonus"). */
+  propertyLevelSteps?: { level: number; text: string }[]
+  special?: Line
+  requirement?: Line
+  /** "1 lb." for non-weapons (weapons keep it in weapon.weight). */
+  weight?: string
   /** Usage may be 'consumable'. */
   powers: Power[]
   weapon?: {
@@ -281,6 +317,8 @@ export interface Item {
     componentCost: string
     category: string
   }
+  /** Alchemical items: type ("Alchemical Item", "Poison") and formula cost text. */
+  alchemical?: { type?: string; formulaCost?: string }
   itemSet?: string
   flavor: string
   description: DescriptionPart[]
@@ -295,6 +333,8 @@ export interface Trap {
   id: string
   name: string
   kind: 'trap' | 'hazard' | 'terrain' | 'object' | 'area' | 'special'
+  /** Terrain only: "At-Will Terrain", "Single-Use Terrain". */
+  usage?: 'at-will' | 'single-use'
   level: number
   role: 'blaster' | 'lurker' | 'obstacle' | 'warder' | string
   rank: 'standard' | 'elite' | 'solo'
@@ -310,6 +350,7 @@ export interface Trap {
   resist: DamageModifier[]
   trigger?: Line
   traits: Trait[]
+  auras: Aura[]
   powers: Power[]
   countermeasures: Line[]
   flavor: string
@@ -357,8 +398,8 @@ export interface MonsterTemplate {
   kind: 'functional' | 'class'
   /** Role the creature becomes; 'any' keeps its current role. */
   role: Role | 'any'
-  /** Standard -> elite, elite -> solo. */
-  raisesRank: true
+  /** 'up': standard -> elite, elite -> solo; 'down': solo -> elite (Elite Dragon). */
+  rankChange: 'up' | 'down'
   leader?: true
   prerequisite: { text: string; check?: TemplatePrereq }
   /** Added keyword: "undead", "shadow". */

@@ -4,6 +4,8 @@
 export const ACTION_TYPES = [
   'standard', 'move', 'minor', 'free',
   'immediate-interrupt', 'immediate-reaction', 'opportunity', 'no-action',
+  // Traps' "Triggered Action" with no printed action type.
+  'triggered',
 ] as const
 export type ActionType = (typeof ACTION_TYPES)[number]
 
@@ -16,6 +18,7 @@ export const ACTION_TYPE_LABELS: Record<ActionType, string> = {
   'immediate-reaction': 'Immediate Reaction',
   'opportunity': 'Opportunity Action',
   'no-action': 'No Action',
+  'triggered': 'Triggered Action',
 }
 
 /** Glyphs both apps print for action types (4ecb's tests assert this exact set). */
@@ -28,6 +31,7 @@ export const ACTION_TYPE_SYMBOLS: Record<ActionType, string> = {
   'immediate-reaction': '↻',
   'opportunity': '↻',
   'no-action': '–',
+  'triggered': '↻',
 }
 
 export const USAGES = ['at-will', 'encounter', 'daily', 'recharge', 'consumable'] as const
@@ -85,6 +89,10 @@ export type Duration =
   | { readonly kind: 'instant' }
   /** Prone and similar: lasts until something removes it. */
   | { readonly kind: 'indefinite' }
+  /** While the creature stays in the aura that grants it. */
+  | { readonly kind: 'while-in-aura' }
+  /** Always on: trait bonuses ("+2 to all defenses against traps"). */
+  | { readonly kind: 'permanent' }
 
 export const ROLES = ['artillery', 'brute', 'controller', 'lurker', 'skirmisher', 'soldier'] as const
 export type Role = (typeof ROLES)[number]

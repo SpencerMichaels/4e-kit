@@ -23,6 +23,9 @@ describe('vocabularies', () => {
 
   it('keeps the action glyph set both apps print', () => {
     expect(new Set(Object.values(ACTION_TYPE_SYMBOLS))).toEqual(new Set(['●', '≫', '◔', '○', '↯', '↻', '–']))
+    // Traps' "Triggered Action" reuses the reaction glyph.
+    expect(ACTION_TYPE_LABELS.triggered).toBe('Triggered Action')
+    expect(ACTION_TYPE_SYMBOLS.triggered).toBe('↻')
   })
 
   it('isOneOf narrows only list members', () => {
