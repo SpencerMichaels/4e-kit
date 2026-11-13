@@ -36,8 +36,13 @@ import type {
  * `optional: true` marks an effect the print makes optional ("can shift 4
  * squares"), offered as a choice and never auto-applied (options are no longer
  * written as `if`).
+ * 7: clause kind difficult-terrain; move "fly" and "move" (plain movement);
+ * status "no-provoke"; `who` may be a list (one effect on several subjects:
+ * ["self", "ally"]); Aura.rangeIf ("aura 2, or 3 while bloodied"); condition
+ * escapeDc ("grabbed (escape DC 20)"). Damage quotes need the dice, not the
+ * word "damage" (validators: "2d8+10 plus 2d6 lightning damage" is two clauses).
  */
-export const SCHEMA_VERSION = 6
+export const SCHEMA_VERSION = 7
 
 /**
  * A resistance or vulnerability: numeric ("resist 10 fire"), a damage type with
@@ -83,7 +88,11 @@ export interface Line {
 
 // ── Effect clauses ──
 
-/** "any living creature in the zone" is creatures-in-area with an `if`. */
+/**
+ * "any living creature in the zone" is creatures-in-area with an `if`. A clause
+ * `who` is one Who, or a list when one printed effect covers several subjects
+ * ("The overseer and one ally turn invisible": ["self", "ally"]).
+ */
 export type Who =
   | 'target' | 'self' | 'each-target' | 'ally' | 'enemies-in-area' | 'creatures-in-area' | 'allies-in-area' | 'other'
 
@@ -116,46 +125,54 @@ export type PowerRestriction = 'encounter' | 'daily' | 'attack' | 'all'
  */
 export type Clause = ClauseBase & (
   /** extra: conditional extra damage (with `if`); critical: inline "(crit 2d8 + 11)". */
-  | { kind: 'damage'; dice: string; types: DamageType[]; typeChoice?: DamageType[]; who: Who; extra?: true; critical?: true }
+  | { kind: 'damage'; dice: string; types: DamageType[]; typeChoice?: DamageType[]; who: Who | Who[]; extra?: true; critical?: true }
   /** PC/item damage formula ("2[W] + Strength modifier"); 4ecb evaluates it. */
   | { kind: 'damage-formula'; text: string; types: DamageType[] }
   | { kind: 'half-damage' }
-  | { kind: 'ongoing-damage'; amount: number; types: DamageType[]; typeChoice?: DamageType[]; who: Who; duration: Duration; saveGroup?: string }
-  | { kind: 'condition'; condition: ConditionId; who: Who; duration: Duration; saveGroup?: string }
+  | { kind: 'ongoing-damage'; amount: number; types: DamageType[]; typeChoice?: DamageType[]; who: Who | Who[]; duration: Duration; saveGroup?: string }
+  /** escapeDc: a grab's printed "(escape DC 20)". */
+  | { kind: 'condition'; condition: ConditionId; who: Who | Who[]; duration: Duration; saveGroup?: string; escapeDc?: number }
   /** to: 'source' = the source only; 'source-allies' = the source and its allies; 'all' = every creature. */
-  | { kind: 'grants-ca'; to: 'all' | 'source' | 'source-allies'; who: Who; duration: Duration; saveGroup?: string }
-  | { kind: 'forced-move'; move: 'push' | 'pull' | 'slide'; squares: number; who: Who }
-  | { kind: 'move'; move: 'shift' | 'teleport' | 'swap'; squares?: number; who: Who }
+  | { kind: 'grants-ca'; to: 'all' | 'source' | 'source-allies'; who: Who | Who[]; duration: Duration; saveGroup?: string }
+  | { kind: 'forced-move'; move: 'push' | 'pull' | 'slide'; squares: number; who: Who | Who[] }
+  /** move "fly": flies; "move": any other movement of its own ("moves its speed", "jumps 5 squares"); no squares when no number is printed. */
+  | { kind: 'move'; move: 'shift' | 'teleport' | 'swap' | 'fly' | 'move'; squares?: number; who: Who | Who[] }
   /** One clause for "+2 to attack rolls and damage rolls": stat ['attack', 'damage']. */
-  | { kind: 'modifier'; stat: ModifierStat | ModifierStat[]; value: number; who: Who; duration: Duration; saveGroup?: string }
-  | { kind: 'resistance' | 'vulnerability'; type: DamageType | 'all' | 'choice'; typeChoice?: DamageType[]; value: number; who: Who; duration: Duration; saveGroup?: string }
+  | { kind: 'modifier'; stat: ModifierStat | ModifierStat[]; value: number; who: Who | Who[]; duration: Duration; saveGroup?: string }
+  | { kind: 'resistance' | 'vulnerability'; type: DamageType | 'all' | 'choice'; typeChoice?: DamageType[]; value: number; who: Who | Who[]; duration: Duration; saveGroup?: string }
   /** perTarget: the amount is per creature hit or damaged ("5 hit points for each creature damaged"). */
-  | { kind: 'heal'; amount: number | 'surge-value' | 'half-surge-value'; who: Who; perTarget?: true }
-  | { kind: 'temp-hp'; amount: number; who: Who }
-  | { kind: 'regeneration'; value: number; who: Who; duration: Duration }
+  | { kind: 'heal'; amount: number | 'surge-value' | 'half-surge-value'; who: Who | Who[]; perTarget?: true }
+  | { kind: 'temp-hp'; amount: number; who: Who | Who[] }
+  | { kind: 'regeneration'; value: number; who: Who | Who[]; duration: Duration }
   | { kind: 'revive'; hp: number }
   /** "uses bite twice", "makes two claw attacks": power is the printed name. */
-  | { kind: 'use-power'; power: string; times?: number; who: Who }
+  | { kind: 'use-power'; power: string; times?: number; who: Who | Who[] }
   /** "<power> recharges". */
   | { kind: 'recharge-power'; power: string }
-  | { kind: 'lose-healing-surge'; count: number; who: Who }
+  | { kind: 'lose-healing-surge'; count: number; who: Who | Who[] }
   /** Partial concealment unless total. */
-  | { kind: 'concealment'; total?: true; who: Who; duration: Duration }
+  | { kind: 'concealment'; total?: true; who: Who | Who[]; duration: Duration }
   /** The power creates a zone; what the zone does is other clauses with `if`. */
   | { kind: 'zone'; duration: Duration }
   /** "makes a saving throw" (with a bonus: "+2 bonus"). */
-  | { kind: 'saving-throw'; bonus?: number; who: Who }
+  | { kind: 'saving-throw'; bonus?: number; who: Who | Who[] }
   | { kind: 'summon'; creature: string; count?: number }
   /** "the triggering attack targets the guard instead": who becomes the target. */
-  | { kind: 'redirect-attack'; who: Who }
+  | { kind: 'redirect-attack'; who: Who | Who[] }
   /** "scores a critical hit on a roll of 18-20": min 18. */
-  | { kind: 'crit-range'; min: number; who: Who; duration: Duration }
+  | { kind: 'crit-range'; min: number; who: Who | Who[]; duration: Duration }
   /** "can't use encounter or daily powers": what ['encounter', 'daily']. */
-  | { kind: 'power-restriction'; what: PowerRestriction | PowerRestriction[]; who: Who; duration: Duration; saveGroup?: string }
+  | { kind: 'power-restriction'; what: PowerRestriction | PowerRestriction[]; who: Who | Who[]; duration: Duration; saveGroup?: string }
   /** "becomes insubstantial and gains phasing": one clause per status. */
-  | { kind: 'status'; status: StatusId; who: Who; duration: Duration; saveGroup?: string }
+  | { kind: 'status'; status: StatusId; who: Who | Who[]; duration: Duration; saveGroup?: string }
   /** "can make opportunity attacks against all enemies within its reach" (Threatening Reach). */
-  | { kind: 'opportunity-reach'; who: Who }
+  | { kind: 'opportunity-reach'; who: Who | Who[] }
+  /**
+   * The area the line describes (an aura, zone or burst) is difficult terrain;
+   * `who` limits it ("difficult terrain for enemies": enemies-in-area), absent
+   * for every creature.
+   */
+  | { kind: 'difficult-terrain'; who?: Who | Who[]; duration: Duration }
   | { kind: 'unparsed'; text: string }
 )
 
@@ -239,6 +256,8 @@ export interface Trait {
 
 export interface Aura extends Trait {
   range: number
+  /** Printed alternative sizes: "aura 2, or 3 while the balor is bloodied" is range 2, rangeIf [{ value: 3, if: "while the balor is bloodied" }]. */
+  rangeIf?: { value: number; if: string | string[] }[]
 }
 
 // ── Monsters ──
