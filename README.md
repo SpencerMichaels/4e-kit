@@ -8,8 +8,15 @@ Shared D&D 4e code for [4e DM Dashboard] and [4ecb]:
   items, traps, diseases, monster templates and themes.
 - `src/character-snapshot.ts`: an evaluated player character, exported by
   4ecb and imported by 4e DM Dashboard.
+- `src/theme.ts`: the theme preference (`system`, `light`, `dark`) and
+  `resolveTheme`, which picks the theme to show.
+- `styles/tokens.css`: the shared design tokens (4ecb's light and dark color
+  sets, power tones, fonts, radius, shadow). Custom properties only. An app
+  imports the file by path and sets `data-theme="light"` or `"dark"` on
+  `<html>`; with no attribute the OS color scheme decides. Display text uses
+  EB Garamond, which each app loads itself (`@fontsource/eb-garamond`).
 
-Planned: the shared style kit (theme tokens, icons) and content validators.
+Planned: icons and content validators.
 
 ## Using it
 

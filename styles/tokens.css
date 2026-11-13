@@ -1,0 +1,146 @@
+/* 4e-kit design tokens: the shared color, type and shape language of
+   4ecb and 4e DM Dashboard.
+
+   Colors are copied verbatim from 4ecb (apps/web/src/styles/01-base.css as
+   of fffbad15). Keep the two in step: change a value here, then in 4ecb.
+
+   Theming: the light set is the default. An app selects a theme by setting
+   `data-theme="light"` or `data-theme="dark"` on <html>. With no attribute
+   the OS color scheme decides (the prefers-color-scheme block below). The
+   dark values are listed twice because CSS can't share one block between a
+   selector and a media query; keep the two copies identical.
+
+   This file defines custom properties only; element styles belong to each
+   app. */
+
+:root {
+  /* Surfaces and text */
+  --background: #eef2f6;
+  --surface: #fff;
+  --surface-subtle: #f5f3ea;
+  --surface-raised: #ffffff;
+  --legacy-neutral: #dedccb;
+  --parchment: #fbf1dd;
+  --text: #1e2933;
+  --muted: #52616e;
+  --border: #b7bec6;
+  --border-strong: #718091;
+
+  /* Accent and state */
+  --accent: #315f85;
+  --accent-strong: #1d3d5d;
+  --accent-soft: #dbe7f1;
+  /* Generic "selected" (rows, buttons, segments): the blue accent. Green is
+     kept for done/gained, and power colors for power usage. */
+  --selected: var(--accent);
+  --selected-soft: color-mix(in srgb, var(--accent) 38%, var(--surface));
+  --brand-navy: #1d3d5d;
+  --brand-blue: #4682b4;
+  --focus: #4682b4;
+  --danger: #8b0000;
+  --danger-soft: #f1dede;
+  --warning: #8b4c00;
+  --warning-soft: #f8e8cc;
+  /* Actionable notifications: orange, brighter than the brown warning and
+     clearly not the error red. */
+  --notify: #c2410c;
+  --success: #006400;
+  --success-soft: #deedde;
+
+  /* Power usage tones (card header fills; white text on the strong tone,
+     body text on the soft tone) */
+  --power-at-will: #006400;
+  --power-at-will-soft: #aaddaa;
+  --power-encounter: #8b0000;
+  --power-encounter-soft: #ddbbbb;
+  --power-daily: #808080;
+  --power-daily-soft: #d3d3d3;
+  --power-utility: #000080;
+  --power-utility-soft: #bbbbdd;
+  --power-feature: #5e3a78;
+  --power-feature-soft: #d9cce3;
+  --power-item: #ff8c00;
+  --power-item-soft: #ffe3cc;
+  --tone-neutral: #1d3d5d;
+  --tone: var(--tone-neutral);
+  --tone-soft: var(--surface-subtle);
+
+  /* Type */
+  --font-ui: system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-display:
+    "EB Garamond", "Goudy Old Style", "Palatino Linotype", Palatino, Georgia,
+    serif;
+  --font-sheet: Georgia, "Times New Roman", serif;
+  /* Stat blocks and power cards (4ecb's printed-card style) */
+  --font-card: Arial, sans-serif;
+
+  /* Shape */
+  --radius: 2px;
+  --shadow-floating: 0 0.35rem 0.8rem rgb(0 0 0 / 20%);
+
+  color-scheme: light;
+}
+
+:root[data-theme="dark"] {
+  --background: #111727;
+  --surface: #182239;
+  --surface-subtle: #202d49;
+  --surface-raised: #202d49;
+  --legacy-neutral: #293550;
+  --parchment: #29261f;
+  --text: #f2f4f7;
+  --muted: #b7c1d1;
+  --border: #34445e;
+  --border-strong: #51637c;
+  --accent: #7eaed2;
+  --accent-strong: #b6d2e8;
+  --accent-soft: #223a55;
+  --focus: #72c1f0;
+  --danger: #ffaaa1;
+  --danger-soft: #482525;
+  --warning: #ffc36b;
+  --warning-soft: #46351f;
+  --notify: #ff9248;
+  --success: #83d18b;
+  --success-soft: #203c2a;
+  --power-at-will-soft: #183923;
+  --power-encounter-soft: #442020;
+  --power-daily-soft: #34383f;
+  --power-utility-soft: #222a55;
+  --power-feature-soft: #33233f;
+  --power-item-soft: #49341d;
+  color-scheme: dark;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme]) {
+    --background: #111727;
+    --surface: #182239;
+    --surface-subtle: #202d49;
+    --surface-raised: #202d49;
+    --legacy-neutral: #293550;
+    --parchment: #29261f;
+    --text: #f2f4f7;
+    --muted: #b7c1d1;
+    --border: #34445e;
+    --border-strong: #51637c;
+    --accent: #7eaed2;
+    --accent-strong: #b6d2e8;
+    --accent-soft: #223a55;
+    --focus: #72c1f0;
+    --danger: #ffaaa1;
+    --danger-soft: #482525;
+    --warning: #ffc36b;
+    --warning-soft: #46351f;
+    --notify: #ff9248;
+    --success: #83d18b;
+    --success-soft: #203c2a;
+    --power-at-will-soft: #183923;
+    --power-encounter-soft: #442020;
+    --power-daily-soft: #34383f;
+    --power-utility-soft: #222a55;
+    --power-feature-soft: #33233f;
+    --power-item-soft: #49341d;
+    color-scheme: dark;
+  }
+}
