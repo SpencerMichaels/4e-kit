@@ -30,8 +30,14 @@ import type {
  * 'unknown' for Attack.vs and Power.usage when the print names none (validators
  * flag it for review instead of a guess); grants-ca 'source-allies' includes the
  * source.
+ * 6: ClauseBase `if` is one exact printed fragment of the owning Line.text or a
+ * list of them (a split condition; no " ... " joins); `unless` holds the printed
+ * condition under which the clause does not apply (replaces the "not:" prefix);
+ * `optional: true` marks an effect the print makes optional ("can shift 4
+ * squares"), offered as a choice and never auto-applied (options are no longer
+ * written as `if`).
  */
-export const SCHEMA_VERSION = 5
+export const SCHEMA_VERSION = 6
 
 /**
  * A resistance or vulnerability: numeric ("resist 10 fire"), a damage type with
@@ -88,8 +94,16 @@ export type ModifierStat =
 interface ClauseBase {
   /** Character span [start, end) in the owning Line.text. */
   at: [number, number]
-  /** Condition text ("if the target is bloodied"): shown, never auto-applied. */
-  if?: string
+  /**
+   * The printed condition: exact fragment(s) of the owning Line.text, never the
+   * clause's own words ("if the target is bloodied"; a split condition is
+   * several fragments in printed order). Shown, never auto-applied.
+   */
+  if?: string | string[]
+  /** Exact printed fragment(s) of a condition under which the clause does not apply ("If the target is already slowed"). */
+  unless?: string | string[]
+  /** The print makes the effect optional ("can shift 4 squares"): offered as a choice, never auto-applied. */
+  optional?: true
 }
 
 /** What a power-restriction clause forbids: "can't use encounter powers", "cannot attack". */
