@@ -81,8 +81,9 @@ export type ConditionId = (typeof CONDITION_IDS)[number]
 /**
  * States that are not conditions in the 4e rules (effects that end
  * conditions do not end them), set by a 'status' clause. 'no-provoke': its
- * movement does not provoke opportunity attacks ("without provoking
- * opportunity attacks"; duration 'instant' when it rides on one move).
+ * movement or the power's attack does not provoke opportunity attacks
+ * ("without provoking opportunity attacks": duration 'instant' when it rides
+ * on one move; "This attack does not provoke": 'this-power').
  */
 export const STATUS_IDS = ['insubstantial', 'phasing', 'no-provoke'] as const
 export type StatusId = (typeof STATUS_IDS)[number]

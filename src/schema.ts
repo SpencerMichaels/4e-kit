@@ -50,8 +50,15 @@ import type {
  * (25 while bloodied)", "AC 24 (28 against opportunity attacks)"); the base value
  * stays in defenses. Clause kind sense ("gains tremorsense 10", "can see
  * invisible creatures": sense 'see-invisible').
+ * 10: clause kind choice (either/or outcomes: options of clauses, one level
+ * deep, each quoted inside the choice's own span; chooser self/target);
+ * grants-ca `to` 'rider', 'mount' and 'ally' (a third party gains combat
+ * advantage); ModifierStat skill and ability checks ('skill:athletics',
+ * 'skill-checks', 'ability:str', 'ability-checks'); reroll `what` may be a list.
+ * "falls asleep" is condition 'unconscious' (4e sleep is unconscious; the
+ * printed wake rule goes in an 'until' duration), not a new status.
  */
-export const SCHEMA_VERSION = 9
+export const SCHEMA_VERSION = 10
 
 /**
  * A resistance or vulnerability: numeric ("resist 10 fire"), a damage type with
@@ -107,9 +114,11 @@ export type Who =
   | 'target' | 'self' | 'each-target' | 'ally' | 'enemies-in-area' | 'creatures-in-area' | 'allies-in-area'
   | 'rider' | 'mount' | 'other'
 
+/** Checks: 'skill:stealth', 'skill-checks' (all), 'ability:str' ("Strength checks"), 'ability-checks'. */
 export type ModifierStat =
   | 'attack' | 'ac' | 'fortitude' | 'reflex' | 'will' | 'defenses'
   | 'speed' | 'saving-throws' | 'damage'
+  | `skill:${Skill}` | 'skill-checks' | `ability:${Ability}` | 'ability-checks'
 
 interface ClauseBase {
   /** Character span [start, end) in the owning Line.text. */
@@ -141,10 +150,10 @@ export type Clause = ClauseBase & (
   | { kind: 'damage-formula'; text: string; types: DamageType[] }
   | { kind: 'half-damage' }
   | { kind: 'ongoing-damage'; amount: number; types: DamageType[]; typeChoice?: DamageType[]; who: Who | Who[]; duration: Duration; saveGroup?: string }
-  /** escapeDc: a grab's printed "(escape DC 20)". */
+  /** escapeDc: a grab's "(escape DC 20)". "falls asleep" is 'unconscious' with the wake rule as duration. */
   | { kind: 'condition'; condition: ConditionId; who: Who | Who[]; duration: Duration; saveGroup?: string; escapeDc?: number }
-  /** to: 'source' = the source only; 'source-allies' = the source and its allies; 'all' = every creature. */
-  | { kind: 'grants-ca'; to: 'all' | 'source' | 'source-allies'; who: Who | Who[]; duration: Duration; saveGroup?: string }
+  /** `to` gains it against `who`: 'source' only, 'source-allies' (the source and its allies), 'all', or only a third party ('rider', 'mount', 'ally'). */
+  | { kind: 'grants-ca'; to: 'all' | 'source' | 'source-allies' | 'rider' | 'mount' | 'ally'; who: Who | Who[]; duration: Duration; saveGroup?: string }
   | { kind: 'forced-move'; move: 'push' | 'pull' | 'slide'; squares: number; who: Who | Who[] }
   /** move "fly": flies; "move": any other movement of its own ("moves its speed", "jumps 5 squares"); no squares when no number is printed. */
   | { kind: 'move'; move: 'shift' | 'teleport' | 'swap' | 'fly' | 'move'; squares?: number; who: Who | Who[] }
@@ -195,13 +204,21 @@ export type Clause = ClauseBase & (
    * "forces the attacker to reroll the attack": who rerolls; keep says which
    * roll counts when printed ("must use the second result": 'new').
    */
-  | { kind: 'reroll'; what: 'attack' | 'save' | 'damage' | 'check'; keep?: 'new' | 'higher' | 'lower'; who: Who | Who[] }
+  | { kind: 'reroll'; what: RerollWhat | RerollWhat[]; keep?: 'new' | 'higher' | 'lower'; who: Who | Who[] }
   /** "gains 1 action point". */
   | { kind: 'action-point'; amount: number; who: Who | Who[] }
   /** A sense the subject gains: "gains tremorsense 10"; "can see invisible creatures" is 'see-invisible'. */
   | { kind: 'sense'; sense: SenseKind | 'see-invisible'; range?: number; who: Who | Who[]; duration: Duration }
+  /** Either/or ("slides 4 squares or is knocked prone"): 2+ options of clauses inside this span (with "or"/"either"), no nested choice; chooser when printed. */
+  | { kind: 'choice'; options: OptionClause[][]; chooser?: 'self' | 'target' }
   | { kind: 'unparsed'; text: string }
 )
+
+/** A clause inside a choice option: any clause but another choice. */
+export type OptionClause = Exclude<Clause, { kind: 'choice' }>
+
+/** What a reroll clause rerolls. */
+export type RerollWhat = 'attack' | 'save' | 'damage' | 'check'
 
 export type ClauseKind = Clause['kind']
 
