@@ -100,6 +100,11 @@ export type Duration =
   | { readonly kind: 'indefinite' }
   /** While the creature stays in the aura that grants it. */
   | { readonly kind: 'while-in-aura' }
+  /**
+   * Only for the attacks the same power makes ("each at a -2 penalty"; "+4
+   * bonus to the attack roll" on the one attack a power grants).
+   */
+  | { readonly kind: 'this-power' }
   /** Always on: trait bonuses ("+2 to all defenses against traps"). */
   | { readonly kind: 'permanent' }
   /** Ends on a printed event: "until it attacks or is hit", "until the grab ends". Shown; ended by hand. */

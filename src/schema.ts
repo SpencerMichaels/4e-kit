@@ -41,8 +41,13 @@ import type {
  * ["self", "ally"]); Aura.rangeIf ("aura 2, or 3 while bloodied"); condition
  * escapeDc ("grabbed (escape DC 20)"). Damage quotes need the dice, not the
  * word "damage" (validators: "2d8+10 plus 2d6 lightning damage" is two clauses).
+ * 8: clause kinds charge, disease (printed name, optional diseaseId and stage),
+ * reroll and action-point; Who 'rider' and 'mount'; duration 'this-power'
+ * (only the attacks the same power makes); Monster.savingThrowNotes for printed
+ * conditional saving throw bonuses ("+5 against fear effects"), which are no
+ * longer folded into savingThrowBonus.
  */
-export const SCHEMA_VERSION = 7
+export const SCHEMA_VERSION = 8
 
 /**
  * A resistance or vulnerability: numeric ("resist 10 fire"), a damage type with
@@ -91,10 +96,12 @@ export interface Line {
 /**
  * "any living creature in the zone" is creatures-in-area with an `if`. A clause
  * `who` is one Who, or a list when one printed effect covers several subjects
- * ("The overseer and one ally turn invisible": ["self", "ally"]).
+ * ("The overseer and one ally turn invisible": ["self", "ally"]). 'rider' and
+ * 'mount': the creature riding the source, or the source's mount.
  */
 export type Who =
-  | 'target' | 'self' | 'each-target' | 'ally' | 'enemies-in-area' | 'creatures-in-area' | 'allies-in-area' | 'other'
+  | 'target' | 'self' | 'each-target' | 'ally' | 'enemies-in-area' | 'creatures-in-area' | 'allies-in-area'
+  | 'rider' | 'mount' | 'other'
 
 export type ModifierStat =
   | 'attack' | 'ac' | 'fortitude' | 'reflex' | 'will' | 'defenses'
@@ -173,6 +180,20 @@ export type Clause = ClauseBase & (
    * for every creature.
    */
   | { kind: 'difficult-terrain'; who?: Who | Who[]; duration: Duration }
+  /** "charges the enemy and makes the following attack"; "can charge" is `optional`. */
+  | { kind: 'charge'; who: Who | Who[] }
+  /**
+   * "the target contracts mummy rot (stage 1)": disease is the printed name;
+   * diseaseId the matching Disease entry (filled by tools); stage as printed.
+   */
+  | { kind: 'disease'; disease: string; diseaseId?: string; stage?: number; who: Who | Who[] }
+  /**
+   * "forces the attacker to reroll the attack": who rerolls; keep says which
+   * roll counts when printed ("must use the second result": 'new').
+   */
+  | { kind: 'reroll'; what: 'attack' | 'save' | 'damage' | 'check'; keep?: 'new' | 'higher' | 'lower'; who: Who | Who[] }
+  /** "gains 1 action point". */
+  | { kind: 'action-point'; amount: number; who: Who | Who[] }
   | { kind: 'unparsed'; text: string }
 )
 
@@ -298,7 +319,10 @@ export interface Monster {
   senses: Sense[]
   speed: Speed
   defenses: Record<Defense, number>
+  /** The unconditional bonus only ("Saving Throws +5 against fear effects" is 0). */
   savingThrowBonus: number
+  /** Printed conditional saving throw bonuses and notes: "+5 against fear effects". */
+  savingThrowNotes?: string[]
   actionPoints: number
   /** String for non-damage immunities: "fear", "gaze", "charm". */
   immune: { type: DamageType | string }[]
