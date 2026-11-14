@@ -292,7 +292,7 @@ export type Clause = ClauseBase & (
   /** "only half the normal hit points" (half), "10 fewer hit points" (value 10). */
   | { kind: 'reduced-healing'; half?: true; value?: number; who: Who | Who[]; duration: Duration; saveGroup?: string }
   /** Trap countermeasure: what success does, its checks, the check's action, a skill challenge's complexity, an attackable part's stats. */
-  | { kind: 'countermeasure'; effect: 'disable' | 'delay' | 'avoid' | 'destroy' | 'identify' | 'predict' | 'control' | 'other'; checks?: CounterCheck[]; action?: ActionType; complexity?: { successes: number; failures: number }; defenses?: Partial<Record<Defense, number>>; hp?: number }
+  | { kind: 'countermeasure'; effect: 'disable' | 'delay' | 'avoid' | 'destroy' | 'identify' | 'predict' | 'control' | 'other'; checks?: CounterCheck[]; action?: ActionType; complexity?: { successes: number; failures?: number }; defenses?: Partial<Record<Defense, number>>; hp?: number }
   /** Turns per round ("rolls initiative twice": 2); counts: fixed initiative counts. */
   | { kind: 'turns'; turns: number; counts?: number[]; who: Who | Who[] }
   /** "uses one of the following eye rays": the power's following attacks or lines; count: "two of the following". */
