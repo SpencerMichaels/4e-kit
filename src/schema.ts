@@ -189,18 +189,18 @@ export type PowerRestriction =
 /** Damage that is not dice ("half its bloodied value"); 'level'/'half-level': the creature's level ("8 + its level": with plus 8). */
 export type DamageAmount = 'surge-value' | 'half-surge-value' | 'bloodied-value' | 'half-bloodied-value' | 'damage-dealt' | 'half-damage-dealt' | 'level' | 'half-level'
 
-/** Templates, themes: "Increase to 2d6 at 11th level". */
-export type ByLevel = { level: number; value: number | DiceAmount }[]
+/** Templates, themes: "Increase to 2d6 at 11th level"; a damage-formula's value is the formula text. */
+export type ByLevel = { level: number; value: number | string }[]
 
 /** "Thievery DC 22"; "Strength DC 20": ability:str; trained: "(trained only)". */
 export interface CounterCheck { skill: Skill | `ability:${Ability}`; dc?: number; trained?: true }
 
-/** typeChoice: "one of the following types: acid, cold or fire", chosen when used (`types` [], a resistance's `type` 'choice'). */
+/** typeChoice: "one of the following types: acid, cold or fire", chosen when used (`types` [], a resistance's `type` 'choice'); 'choice' or a damage-type's [] with no typeChoice: any type, chosen when applied (a theme's "[damage type]"). */
 export type Clause = ClauseBase & (
   /** extra: conditional (with `if`); critical: "(crit 2d8 + 11)"; duration: dealt later or each turn; by: who deals it, if not the source; amount (+ plus) instead of dice; stacks: "cumulative" (false: "do not stack"), max: its cap. */
   | { kind: 'damage'; dice?: string; amount?: DamageAmount; plus?: number; types: DamageType[]; typeChoice?: DamageType[]; who: Who | Who[]; extra?: true; critical?: true; by?: Who | Who[]; per?: string; duration?: Duration; saveGroup?: string; byLevel?: ByLevel; stacks?: boolean; max?: number }
   /** PC/item formula: "2[W] + Strength modifier". */
-  | { kind: 'damage-formula'; text: string; types: DamageType[] }
+  | { kind: 'damage-formula'; text: string; types: DamageType[]; typeChoice?: DamageType[]; byLevel?: ByLevel }
   /** "takes half damage", "deals double damage" (to objects: `if`), "deals maximum damage". */
   | { kind: 'half-damage' | 'double-damage' | 'max-damage'; who?: Who | Who[]; duration?: Duration; saveGroup?: string }
   /** "takes no damage" (a roll that grants it, "on a 10 or higher", is `if`). */
