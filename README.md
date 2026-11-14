@@ -16,7 +16,12 @@ Shared D&D 4e code for [4e DM Dashboard] and [4ecb]:
   `<html>`; with no attribute the OS color scheme decides. Display text uses
   EB Garamond, which each app loads itself (`@fontsource/eb-garamond`).
 
-Planned: icons and content validators.
+- `src/power-card.ts`: what a power card shows, independent of drawing: the
+  icon name (Lucide, kebab-case) for each action type, usage chip labels,
+  short defense names, sustain lines, and body lines in book order. Icons are
+  names only; each app draws them with its own icon component.
+
+Planned: content validators.
 
 ## Using it
 
