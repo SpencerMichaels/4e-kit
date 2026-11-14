@@ -101,8 +101,9 @@ import type {
  * any condition; reroll `duration`/`saveGroup`; power-restriction 'basic' and
  * `except`; statuses 'no-flank', 'move-through', 'carry-grabbed', 'no-temp-hp';
  * Monster.healingSurges, surgeValue and classRole (companion and NPC blocks).
+ * 15: Item.enhancementTargets (what an item's enhancement bonus applies to).
  */
-export const SCHEMA_VERSION = 14
+export const SCHEMA_VERSION = 15
 
 /** A resistance or vulnerability: numeric, a type with no number, or text-only ({ type: 'special', text: 'insubstantial' }). */
 export interface DamageModifier {
@@ -479,6 +480,12 @@ export interface Item {
   tier?: 'heroic' | 'paragon' | 'epic'
   /** Tiers of one item; price in gp, or null with priceText ("Special", "Priceless"). */
   levels: { level: number; enhancement?: number; price: number | null; priceText?: string }[]
+  /**
+   * What the enhancement bonus (`levels[].enhancement`) applies to: attack and damage
+   * rolls (weapons, implements), AC (armor), Fortitude, Reflex and Will (neck items).
+   * Absent when the item has no enhancement bonus.
+   */
+  enhancementTargets?: ('attack' | 'damage' | 'ac' | 'fortitude' | 'reflex' | 'will')[]
   slot?: ItemSlot
   /** Kind within the category: "Consumable", "Divine Boon", "Ammunition", "Mount". */
   subtype?: string
