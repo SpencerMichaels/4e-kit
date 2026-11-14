@@ -89,7 +89,7 @@ export type ConditionId = (typeof CONDITION_IDS)[number]
  */
 export const STATUS_IDS = [
   'insubstantial', 'phasing', 'no-provoke', 'no-concealment', 'no-regain-hp', 'no-healing-surges', 'ignore-difficult-terrain',
-  'no-stand', 'ignore-cover', 'ignore-concealment', 'no-flank', 'move-through', 'carry-grabbed', 'no-temp-hp',
+  'no-stand', 'ignore-cover', 'ignore-concealment', 'no-flank', 'move-through', 'carry-grabbed', 'no-temp-hp', 'no-saving-throws',
 ] as const
 export type StatusId = (typeof STATUS_IDS)[number]
 

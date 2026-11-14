@@ -101,7 +101,13 @@ import type {
  * any condition; reroll `duration`/`saveGroup`; power-restriction 'basic' and
  * `except`; statuses 'no-flank', 'move-through', 'carry-grabbed', 'no-temp-hp';
  * Monster.healingSurges, surgeValue and classRole (companion and NPC blocks).
- * 15: Item.enhancementTargets (what an item's enhancement bonus applies to).
+ * 15: Item.enhancementTargets (what an item's enhancement bonus applies to);
+ * clause kinds countermeasure (traps), turns (extra turns, fixed initiative
+ * counts), one-of (a choice among the following attacks or lines), light,
+ * damage-type, aura-off and keyword; summon `duration`; `stacks`/`max` on
+ * damage, ongoing-damage and modifier; `byLevel` scaling and level amounts
+ * ('level', 'half-level' with `plus`) for templates and themes; status
+ * 'no-saving-throws'.
  */
 export const SCHEMA_VERSION = 15
 
@@ -180,13 +186,19 @@ export type PowerRestriction =
   | 'standard' | 'move' | 'minor' | 'immediate' | 'opportunity'
   | 'shift' | 'teleport' | 'charge' | 'fly' | 'basic' | 'non-basic' | 'non-at-will' | 'named'
 
-/** Damage that is not dice ("half its bloodied value"). */
-export type DamageAmount = 'surge-value' | 'half-surge-value' | 'bloodied-value' | 'half-bloodied-value' | 'damage-dealt' | 'half-damage-dealt'
+/** Damage that is not dice ("half its bloodied value"); 'level'/'half-level': the creature's level ("8 + its level": with plus 8). */
+export type DamageAmount = 'surge-value' | 'half-surge-value' | 'bloodied-value' | 'half-bloodied-value' | 'damage-dealt' | 'half-damage-dealt' | 'level' | 'half-level'
+
+/** Templates, themes: "Increase to 2d6 at 11th level". */
+export type ByLevel = { level: number; value: number | DiceAmount }[]
+
+/** "Thievery DC 22"; "Strength DC 20": ability:str; trained: "(trained only)". */
+export interface CounterCheck { skill: Skill | `ability:${Ability}`; dc?: number; trained?: true }
 
 /** typeChoice: "one of the following types: acid, cold or fire", chosen when used (`types` [], a resistance's `type` 'choice'). */
 export type Clause = ClauseBase & (
-  /** extra: conditional (with `if`); critical: "(crit 2d8 + 11)"; duration: dealt later or each turn; by: who deals it, if not the source; amount instead of dice. */
-  | { kind: 'damage'; dice?: string; amount?: DamageAmount; types: DamageType[]; typeChoice?: DamageType[]; who: Who | Who[]; extra?: true; critical?: true; by?: Who | Who[]; per?: string; duration?: Duration; saveGroup?: string }
+  /** extra: conditional (with `if`); critical: "(crit 2d8 + 11)"; duration: dealt later or each turn; by: who deals it, if not the source; amount (+ plus) instead of dice; stacks: "cumulative" (false: "do not stack"), max: its cap. */
+  | { kind: 'damage'; dice?: string; amount?: DamageAmount; plus?: number; types: DamageType[]; typeChoice?: DamageType[]; who: Who | Who[]; extra?: true; critical?: true; by?: Who | Who[]; per?: string; duration?: Duration; saveGroup?: string; byLevel?: ByLevel; stacks?: boolean; max?: number }
   /** PC/item formula: "2[W] + Strength modifier". */
   | { kind: 'damage-formula'; text: string; types: DamageType[] }
   /** "takes half damage", "deals double damage" (to objects: `if`), "deals maximum damage". */
@@ -194,7 +206,7 @@ export type Clause = ClauseBase & (
   /** "takes no damage" (a roll that grants it, "on a 10 or higher", is `if`). */
   | { kind: 'no-damage'; who?: Who | Who[]; duration?: Duration; saveGroup?: string }
   /** saveModifier: "(save ends, with a -2 penalty to the saving throw)": -2. increase: "that damage increases by 5". */
-  | { kind: 'ongoing-damage'; amount: number; types: DamageType[]; typeChoice?: DamageType[]; who: Who | Who[]; duration: Duration; saveGroup?: string; saveModifier?: number; increase?: true }
+  | { kind: 'ongoing-damage'; amount: number; types: DamageType[]; typeChoice?: DamageType[]; who: Who | Who[]; duration: Duration; saveGroup?: string; saveModifier?: number; increase?: true; byLevel?: ByLevel; stacks?: boolean; max?: number }
   /** escapeDc: "(escape DC 20)", any condition. "falls asleep": 'unconscious', the wake rule as duration. observer: it holds only for that creature. */
   | { kind: 'condition'; condition: ConditionId; who: Who | Who[]; duration: Duration; saveGroup?: string; escapeDc?: number; saveModifier?: number; observer?: Who }
   /** `to` gains it against `who`: 'source', 'source-allies' (the source and its allies), 'all', or a third party. */
@@ -204,12 +216,12 @@ export type Clause = ClauseBase & (
   /** move "fly": flies; "move": any other movement of its own ("moves its speed", "jumps 5 squares"); no squares when no number is printed. */
   | { kind: 'move'; move: 'shift' | 'teleport' | 'swap' | 'fly' | 'move'; squares?: number; squaresText?: string; who: Who | Who[] }
   /** "+2 to attack rolls and damage rolls": stat ['attack', 'damage']. value may be dice ("-1d6" subtracts). */
-  | { kind: 'modifier'; stat: ModifierStat | ModifierStat[]; value: number | DiceAmount; who: Who | Who[]; duration: Duration; saveGroup?: string; per?: string }
-  | { kind: 'resistance' | 'vulnerability'; type: DamageType | 'all' | 'choice'; typeChoice?: DamageType[]; value: number; who: Who | Who[]; duration: Duration; saveGroup?: string }
+  | { kind: 'modifier'; stat: ModifierStat | ModifierStat[]; value: number | DiceAmount; who: Who | Who[]; duration: Duration; saveGroup?: string; per?: string; byLevel?: ByLevel; stacks?: boolean; max?: number }
+  | { kind: 'resistance' | 'vulnerability'; type: DamageType | 'all' | 'choice'; typeChoice?: DamageType[]; value: number; who: Who | Who[]; duration: Duration; saveGroup?: string; byLevel?: ByLevel }
   /** perTarget: per creature hit or damaged. per (also damage, modifier, temp-hp): printed "for each ..." words. */
-  | { kind: 'heal'; amount: number | DiceAmount | 'surge-value' | 'half-surge-value' | 'damage-dealt' | 'half-damage-dealt'; who: Who | Who[]; perTarget?: true; per?: string; spendSurge?: true }
-  | { kind: 'temp-hp'; amount: number | DiceAmount | 'surge-value'; who: Who | Who[]; per?: string }
-  | { kind: 'regeneration'; value: number; who: Who | Who[]; duration: Duration; saveGroup?: string }
+  | { kind: 'heal'; amount: number | DiceAmount | 'surge-value' | 'half-surge-value' | 'damage-dealt' | 'half-damage-dealt' | 'level' | 'half-level'; plus?: number; who: Who | Who[]; perTarget?: true; per?: string; spendSurge?: true; byLevel?: ByLevel }
+  | { kind: 'temp-hp'; amount: number | DiceAmount | 'surge-value' | 'level' | 'half-level'; plus?: number; who: Who | Who[]; per?: string; byLevel?: ByLevel }
+  | { kind: 'regeneration'; value: number; who: Who | Who[]; duration: Duration; saveGroup?: string; byLevel?: ByLevel }
   | { kind: 'revive'; hp: number }
   /** "uses bite twice", "makes two claw attacks": power is the printed name. */
   | { kind: 'use-power'; power: string; times?: number; who: Who | Who[] }
@@ -222,7 +234,7 @@ export type Clause = ClauseBase & (
   | { kind: 'zone'; duration: Duration; blocksLineOfSight?: true }
   /** "makes a saving throw" (with a bonus: "+2 bonus"). */
   | { kind: 'saving-throw'; bonus?: number; who: Who | Who[] }
-  | { kind: 'summon'; creature: string; count?: number }
+  | { kind: 'summon'; creature: string; count?: number; duration?: Duration }
   /** "the triggering attack targets the guard instead": who becomes the target. */
   | { kind: 'redirect-attack'; who: Who | Who[] }
   /** "scores a critical hit on a roll of 18-20": min 18. */
@@ -279,6 +291,20 @@ export type Clause = ClauseBase & (
   | { kind: 'state'; name: string; who: Who | Who[]; duration: Duration; saveGroup?: string }
   /** "only half the normal hit points" (half), "10 fewer hit points" (value 10). */
   | { kind: 'reduced-healing'; half?: true; value?: number; who: Who | Who[]; duration: Duration; saveGroup?: string }
+  /** Trap countermeasure: what success does, its checks, the check's action, a skill challenge's complexity, an attackable part's stats. */
+  | { kind: 'countermeasure'; effect: 'disable' | 'delay' | 'avoid' | 'destroy' | 'identify' | 'predict' | 'control' | 'other'; checks?: CounterCheck[]; action?: ActionType; complexity?: { successes: number; failures: number }; defenses?: Partial<Record<Defense, number>>; hp?: number }
+  /** Turns per round ("rolls initiative twice": 2); counts: fixed initiative counts. */
+  | { kind: 'turns'; turns: number; counts?: number[]; who: Who | Who[] }
+  /** "uses one of the following eye rays": the power's following attacks or lines; count: "two of the following". */
+  | { kind: 'one-of'; from: 'attacks' | 'lines'; count?: number; chooser?: 'self' | 'target' | 'roll' }
+  /** "sheds bright light in a 5-square radius"; 'dimmer': one step darker. */
+  | { kind: 'light'; light: 'bright' | 'dim' | 'darkness' | 'dimmer'; radius?: number; who?: Who | Who[]; duration: Duration; saveGroup?: string }
+  /** "deals cold damage instead"; from: the replaced types; power: its name if not this power. */
+  | { kind: 'damage-type'; types: DamageType[]; typeChoice?: DamageType[]; from?: DamageType[]; power?: string; who: Who | Who[]; duration: Duration; saveGroup?: string }
+  /** "its aura ends until ...": aura: its name if not the owning aura. */
+  | { kind: 'aura-off'; aura?: string; duration: Duration; saveGroup?: string }
+  /** "gains the necrotic keyword", "becomes undead". */
+  | { kind: 'keyword'; keyword: string; who: Who | Who[]; duration: Duration; saveGroup?: string }
   | { kind: 'unparsed'; text: string }
 )
 
