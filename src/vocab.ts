@@ -83,11 +83,13 @@ export type ConditionId = (typeof CONDITION_IDS)[number]
  * its move or attack does not provoke ('instant' on one move, 'this-power' on
  * an attack). 'no-concealment': cannot benefit from concealment or
  * invisibility; 'no-stand': cannot stand up; 'ignore-cover' /
- * 'ignore-concealment': its attacks ignore them.
+ * 'ignore-concealment': its attacks ignore them; 'no-flank': no combat
+ * advantage by flanking it; 'move-through': through enemies' spaces;
+ * 'carry-grabbed': creatures it grabs move with it.
  */
 export const STATUS_IDS = [
   'insubstantial', 'phasing', 'no-provoke', 'no-concealment', 'no-regain-hp', 'no-healing-surges', 'ignore-difficult-terrain',
-  'no-stand', 'ignore-cover', 'ignore-concealment',
+  'no-stand', 'ignore-cover', 'ignore-concealment', 'no-flank', 'move-through', 'carry-grabbed', 'no-temp-hp',
 ] as const
 export type StatusId = (typeof STATUS_IDS)[number]
 
@@ -113,6 +115,10 @@ export type Duration =
 
 export const ROLES = ['artillery', 'brute', 'controller', 'lurker', 'skirmisher', 'soldier'] as const
 export type Role = (typeof ROLES)[number]
+
+/** PC class roles, printed for companions and NPCs ("Level 4 Defender", no XP). */
+export const CLASS_ROLES = ['controller', 'defender', 'leader', 'striker'] as const
+export type ClassRole = (typeof CLASS_ROLES)[number]
 
 export const RANKS = ['standard', 'elite', 'solo', 'minion'] as const
 export type Rank = (typeof RANKS)[number]

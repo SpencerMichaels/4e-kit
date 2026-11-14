@@ -7,7 +7,7 @@
 //   - Plain JSON only (no classes, no functions).
 
 import type {
-  Ability, ActionType, ConditionId, CreatureType, DamageType, Defense, Duration,
+  Ability, ActionType, ClassRole, ConditionId, CreatureType, DamageType, Defense, Duration,
   Origin, RangeKind, Rank, Recharge, Role, SenseKind, Size, Skill, StatusId, Usage,
 } from './vocab'
 
@@ -93,8 +93,16 @@ import type {
  * 'non-basic' and 'non-at-will'; sense 'sight-limit'; statuses 'no-stand',
  * 'ignore-cover', 'ignore-concealment'; Monster.hpText (hp may be 0 with it)
  * and immune `note`.
+ * 14: clause kinds double-damage and max-damage (as half-damage), set-hp,
+ * condition-swap ("if stunned, it is dazed instead"), move-zone, state (a
+ * named non-4e state: "cursed (save ends)", a form or stance) and
+ * reduced-healing; damage `amount` for printed amounts that are not dice
+ * ("half its bloodied value"; `dice` is then absent); condition `escapeDc` on
+ * any condition; reroll `duration`/`saveGroup`; power-restriction 'basic' and
+ * `except`; statuses 'no-flank', 'move-through', 'carry-grabbed', 'no-temp-hp';
+ * Monster.healingSurges, surgeValue and classRole (companion and NPC blocks).
  */
-export const SCHEMA_VERSION = 13
+export const SCHEMA_VERSION = 14
 
 /** A resistance or vulnerability: numeric, a type with no number, or text-only ({ type: 'special', text: 'insubstantial' }). */
 export interface DamageModifier {
@@ -169,24 +177,24 @@ interface ClauseBase {
 export type PowerRestriction =
   | 'encounter' | 'daily' | 'attack' | 'all'
   | 'standard' | 'move' | 'minor' | 'immediate' | 'opportunity'
-  | 'shift' | 'teleport' | 'charge' | 'fly' | 'non-basic' | 'non-at-will' | 'named'
+  | 'shift' | 'teleport' | 'charge' | 'fly' | 'basic' | 'non-basic' | 'non-at-will' | 'named'
 
-/**
- * typeChoice (damage, ongoing-damage, resistance, vulnerability): "one of the
- * following types: acid, cold or fire" is chosen when used; `types` is then []
- * and a resistance's `type` is 'choice'.
- */
+/** Damage that is not dice ("half its bloodied value"). */
+export type DamageAmount = 'surge-value' | 'half-surge-value' | 'bloodied-value' | 'half-bloodied-value' | 'damage-dealt' | 'half-damage-dealt'
+
+/** typeChoice: "one of the following types: acid, cold or fire", chosen when used (`types` [], a resistance's `type` 'choice'). */
 export type Clause = ClauseBase & (
-  /** extra: conditional (with `if`); critical: "(crit 2d8 + 11)"; duration: dealt later or each turn; by: who deals it, if not the source. */
-  | { kind: 'damage'; dice: string; types: DamageType[]; typeChoice?: DamageType[]; who: Who | Who[]; extra?: true; critical?: true; by?: Who | Who[]; per?: string; duration?: Duration; saveGroup?: string }
-  /** PC/item damage formula ("2[W] + Strength modifier"); 4ecb evaluates it. */
+  /** extra: conditional (with `if`); critical: "(crit 2d8 + 11)"; duration: dealt later or each turn; by: who deals it, if not the source; amount instead of dice. */
+  | { kind: 'damage'; dice?: string; amount?: DamageAmount; types: DamageType[]; typeChoice?: DamageType[]; who: Who | Who[]; extra?: true; critical?: true; by?: Who | Who[]; per?: string; duration?: Duration; saveGroup?: string }
+  /** PC/item formula: "2[W] + Strength modifier". */
   | { kind: 'damage-formula'; text: string; types: DamageType[] }
-  | { kind: 'half-damage'; who?: Who | Who[]; duration?: Duration; saveGroup?: string }
+  /** "takes half damage", "deals double damage" (to objects: `if`), "deals maximum damage". */
+  | { kind: 'half-damage' | 'double-damage' | 'max-damage'; who?: Who | Who[]; duration?: Duration; saveGroup?: string }
   /** "takes no damage" (a roll that grants it, "on a 10 or higher", is `if`). */
   | { kind: 'no-damage'; who?: Who | Who[]; duration?: Duration; saveGroup?: string }
   /** saveModifier: "(save ends, with a -2 penalty to the saving throw)": -2. increase: "that damage increases by 5". */
   | { kind: 'ongoing-damage'; amount: number; types: DamageType[]; typeChoice?: DamageType[]; who: Who | Who[]; duration: Duration; saveGroup?: string; saveModifier?: number; increase?: true }
-  /** escapeDc: "(escape DC 20)". "falls asleep": 'unconscious', the wake rule as duration. observer: it holds only for that creature. */
+  /** escapeDc: "(escape DC 20)", any condition. "falls asleep": 'unconscious', the wake rule as duration. observer: it holds only for that creature. */
   | { kind: 'condition'; condition: ConditionId; who: Who | Who[]; duration: Duration; saveGroup?: string; escapeDc?: number; saveModifier?: number; observer?: Who }
   /** `to` gains it against `who`: 'source', 'source-allies' (the source and its allies), 'all', or a third party. */
   | { kind: 'grants-ca'; to: 'all' | 'source' | 'source-allies' | 'rider' | 'mount' | 'ally'; who: Who | Who[]; duration: Duration; saveGroup?: string }
@@ -218,30 +226,20 @@ export type Clause = ClauseBase & (
   | { kind: 'redirect-attack'; who: Who | Who[] }
   /** "scores a critical hit on a roll of 18-20": min 18. */
   | { kind: 'crit-range'; min: number; who: Who | Who[]; duration: Duration; saveGroup?: string }
-  /** "can't use encounter or daily powers": what ['encounter', 'daily']; 'named': the printed names in `powers`. */
-  | { kind: 'power-restriction'; what: PowerRestriction | PowerRestriction[]; powers?: string[]; who: Who | Who[]; duration: Duration; saveGroup?: string }
+  /** "can't use encounter or daily powers": what ['encounter', 'daily']; 'named': the printed names in `powers`; except: "except claw". */
+  | { kind: 'power-restriction'; what: PowerRestriction | PowerRestriction[]; powers?: string[]; except?: string[]; who: Who | Who[]; duration: Duration; saveGroup?: string }
   /** "becomes insubstantial and gains phasing": one clause per status. */
   | { kind: 'status'; status: StatusId; who: Who | Who[]; duration: Duration; saveGroup?: string }
-  /** "can make opportunity attacks against all enemies within its reach" (Threatening Reach). */
+  /** Threatening Reach: "can make opportunity attacks against all enemies within its reach" (`optional`). */
   | { kind: 'opportunity-reach'; who: Who | Who[] }
-  /**
-   * The area the line describes (an aura, zone or burst) is difficult terrain;
-   * `who` limits it ("difficult terrain for enemies": enemies-in-area), absent
-   * for every creature.
-   */
+  /** The line's aura, zone or burst is difficult terrain; `who` limits it ("for enemies"), absent for all. */
   | { kind: 'difficult-terrain'; who?: Who | Who[]; duration: Duration; saveGroup?: string }
   /** "charges the enemy and makes the following attack"; "can charge" is `optional`. */
   | { kind: 'charge'; who: Who | Who[] }
-  /**
-   * "the target contracts mummy rot (stage 1)": disease is the printed name;
-   * diseaseId the matching Disease entry (filled by tools); stage as printed.
-   */
+  /** "contracts level 6 mummy rot (stage 1)": "mummy rot"; diseaseId is filled by tools. */
   | { kind: 'disease'; disease: string; diseaseId?: string; stage?: number; who: Who | Who[] }
-  /**
-   * "forces the attacker to reroll the attack": who rerolls; keep says which
-   * roll counts when printed ("must use the second result": 'new').
-   */
-  | { kind: 'reroll'; what: RerollWhat | RerollWhat[]; keep?: 'new' | 'higher' | 'lower'; who: Who | Who[] }
+  /** who rerolls; keep: the roll that counts, when printed ("must use the second result": 'new'). */
+  | { kind: 'reroll'; what: RerollWhat | RerollWhat[]; keep?: 'new' | 'higher' | 'lower'; who: Who | Who[]; duration?: Duration; saveGroup?: string }
   /** "gains 1 action point". */
   | { kind: 'action-point'; amount: number; who: Who | Who[] }
   /** "gains tremorsense 10"; "can see invisible creatures": 'see-invisible'; "cannot see more than 2 squares away": 'sight-limit', range 2. */
@@ -270,6 +268,16 @@ export type Clause = ClauseBase & (
   | { kind: 'aura-size'; aura?: string; value?: number; change?: number; duration: Duration }
   /** "becomes Large", "reach becomes 2". */
   | { kind: 'size-change'; size?: Size; reach?: number; who: Who | Who[]; duration: Duration; saveGroup?: string }
+  /** "is instead reduced to 1 hit point". */
+  | { kind: 'set-hp'; hp: number; who: Who | Who[] }
+  /** "if stunned, it is dazed instead": from ['stunned'], to 'dazed'. */
+  | { kind: 'condition-swap'; from: ConditionId[]; to: ConditionId; who: Who | Who[] }
+  /** "can move the zone up to 5 squares". */
+  | { kind: 'move-zone'; squares?: number }
+  /** A named non-4e state ("cursed (save ends)", a form or stance); its effects have `if` ("While cursed"). */
+  | { kind: 'state'; name: string; who: Who | Who[]; duration: Duration; saveGroup?: string }
+  /** "only half the normal hit points" (half), "10 fewer hit points" (value 10). */
+  | { kind: 'reduced-healing'; half?: true; value?: number; who: Who | Who[]; duration: Duration; saveGroup?: string }
   | { kind: 'unparsed'; text: string }
 )
 
@@ -288,8 +296,8 @@ export type ClauseKind = Clause['kind']
 
 export type AttackBonus =
   | { kind: 'fixed'; value: number } // monsters, traps
-  | { kind: 'level'; plus: number } // templates and themes: "level + 5"
-  | { kind: 'formula'; text: string } // PC and item powers; 4ecb evaluates them
+  | { kind: 'level'; plus: number } // templates, themes: "level + 5"
+  | { kind: 'formula'; text: string } // PC and item powers
 
 export interface Range {
   kind: RangeKind
@@ -321,7 +329,7 @@ export interface Attack {
   critical?: Line
   /** Applies when the hit's save-ends effects end. */
   aftereffect?: Line
-  /** "First Failed Saving Throw:", "Second Failed Saving Throw:", "Each Failed Saving Throw:". */
+  /** "First (Second, Each) Failed Saving Throw:". */
   failedSaves?: { n: number | 'each'; line: Line }[]
 }
 
@@ -350,7 +358,7 @@ export interface Power {
   /** line is absent when the sustain is printed only inline ("(sustain minor)"). */
   sustain?: { action: ActionType; line?: Line }
   special?: Line
-  /** Item and theme scaling ("Level 11: 4 fire damage"). */
+  /** Item and theme scaling. */
   levelSteps?: { level: number; text: string }[]
   /** Labeled lines with no field of their own: form lines, numbered eye rays. */
   extraLines?: { label: string; line: Line }[]
@@ -366,7 +374,7 @@ export interface Aura extends Trait {
   /** Absent when the printed size is not a number: "aura sight" is rangeText "sight". */
   range?: number
   rangeText?: string
-  /** Printed alternative sizes: "aura 2, or 3 while the balor is bloodied" is range 2, rangeIf [{ value: 3, if: "while the balor is bloodied" }]. */
+  /** "aura 2, or 3 while bloodied": range 2, rangeIf [{ value: 3, if: "while bloodied" }]. */
   rangeIf?: { value: number; if: string | string[] }[]
 }
 
@@ -393,6 +401,8 @@ export interface Monster {
   name: string
   level: number
   role: Role | null
+  /** A PC class role ("Level 4 Defender", no XP); role is null. */
+  classRole?: ClassRole
   rank: Rank
   leader?: true
   size: Size
@@ -407,15 +417,15 @@ export interface Monster {
   hpText?: string
   /** "HP 66 (99 if in a possessed body)": [{ value: 99, if: "if in a possessed body" }]. */
   hpIf?: { value: number; if: string | string[] }[]
+  /** Companions, NPCs: "Healing Surges 11; Surge Value 12". */
+  healingSurges?: number
+  surgeValue?: number
   initiative: number
   perception: number
   senses: Sense[]
   speed: Speed
   defenses: Record<Defense, number>
-  /**
-   * Printed conditional defense values: "Fortitude 23 (25 while bloodied)" is
-   * fortitude 23 in defenses plus { defense: 'fortitude', value: 25, if: "while bloodied" }.
-   */
+  /** "Fortitude 23 (25 while bloodied)": 23 in defenses, { defense: 'fortitude', value: 25, if: "while bloodied" } here. */
   defensesIf?: { defense: Defense; value: number; if: string | string[] }[]
   /** The unconditional bonus only ("Saving Throws +5 against fear effects" is 0). */
   savingThrowBonus: number
