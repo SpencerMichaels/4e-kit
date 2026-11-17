@@ -108,8 +108,10 @@ import type {
  * damage, ongoing-damage and modifier; `byLevel` scaling and level amounts
  * ('level', 'half-level' with `plus`) for templates and themes; status
  * 'no-saving-throws'.
+ * 16: SkillChallenge, a content kind of its own (skills with DC tiers, a level
+ * that may follow the party's).
  */
-export const SCHEMA_VERSION = 15
+export const SCHEMA_VERSION = 16
 
 /** A resistance or vulnerability: numeric, a type with no number, or text-only ({ type: 'special', text: 'insubstantial' }). */
 export interface DamageModifier {
@@ -590,6 +592,53 @@ export interface Trap {
   countermeasures: Line[]
   flavor: string
   description: string
+  /** Every publication that prints the entry; the first is the primary source. */
+  sources: SourceRef[]
+  provenance: Provenance
+}
+
+// ── Skill challenges ──
+
+/** A skill a challenge uses, and what a check with it does. */
+export interface ChallengeSkill {
+  /** A skill, or printed text for anything else ("Strength", "a knowledge skill"). */
+  skill: Skill | string
+  /**
+   * The check's DC: a tier of the challenge's level (the DC by Level table, RC p. 126), so the DC follows
+   * the level; a printed number; or none (a check with no DC, or one the text gives).
+   */
+  dc?: 'easy' | 'moderate' | 'hard' | number
+  /** What the check means: how it helps, and what success or failure does. */
+  text: string
+  /** "Maximum 2 successes" with this skill. */
+  maxSuccesses?: number
+}
+
+/**
+ * A skill challenge (RC pp. 157-159): a series of skill checks toward a goal, won with its complexity's
+ * successes before 3 failures. It stands on its own as a noncombat encounter or is part of a combat one.
+ */
+export interface SkillChallenge {
+  id: string
+  name: string
+  /**
+   * Its level, which sets its DCs and XP; null for a generic challenge whose level is "equal to the level of
+   * the party" (the DMG's sample challenges), so its DCs follow the party.
+   */
+  level: number | null
+  /** 1-5: 4, 6, 8, 10 or 12 successes before 3 failures (RC p. 159). */
+  complexity: number
+  /** The situation and the goal. */
+  setup: string
+  /** Skills whose checks count toward the successes. */
+  primarySkills: ChallengeSkill[]
+  /** Skills that help without counting as successes (or count only once). */
+  secondarySkills: ChallengeSkill[]
+  success: string
+  failure: string
+  /** Anything else: advantages, special rules, consequences of single checks. */
+  special?: string
+  flavor: string
   /** Every publication that prints the entry; the first is the primary source. */
   sources: SourceRef[]
   provenance: Provenance
